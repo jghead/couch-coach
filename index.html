@@ -195,6 +195,17 @@ const SCHEDULE = [
   {wk:13,opp:"Kelce's Angels",res:"—",s:"upcoming"},{wk:14,opp:"CMC Hammer",res:"—",s:"playoffs"},
 ];
 
+// Injury / news flags (the real app reads these from Sleeper's player data)
+[["P. Nacua","Q"],["J. Mixon","OUT"]].forEach(([n,st])=>{ const p=[...myStarters,...myBench].find(x=>x.name===n); if(p)p.status=st; });
+{ const p=oppStarters.find(x=>x.name==="CeeDee Lamb"); if(p)p.status="Q"; }
+{ const p=FREE_AGENTS.find(x=>x.name==="J. Dobbins"); if(p)p.status="news"; }
+
+const CHAT_SEED=[
+  {who:"Gridiron Goblins", text:"good luck this week, you'll need it 😂", time:"9:12a"},
+  {who:"Burrow Bandits", text:"freeze my Mahomes and it's over between us", time:"9:31a"},
+  {who:"Kelce's Angels", text:"who dropped Dobbins?? grabbing him", time:"10:04a"},
+];
+
 // ============================ STATE ============================
 const QSEC = 15*60, TICK=250, BASE_SPD=20;
 const PITY_THRESHOLD = 8; // silent: guarantee a rare after this many rare-less pulls
@@ -202,7 +213,7 @@ let app = {
   loggedIn:false, connectedLeague:null, foundLeagues:null,
   tab:"matchup", leagueTab:"scoreboard",
   inv:{ double:1, freeze:0, surge:0, shield:0, steal:0, floor:0 },
-  earnedThisWeek:0, pityCount:0,
+  earnedThisWeek:0, pityCount:0, realData:false, chat:CHAT_SEED.slice(),
   sim:null, armed:null,
   settings:{
     scoring:{ passYdsPerPt:25, passTD:4, passInt:-2, rushYdsPerPt:10, rushTD:6,
@@ -235,6 +246,32 @@ function sleeperBtn(label){
   b.innerHTML=label+' <span style="opacity:.65">↗</span>';
   b.onclick=()=>window.open(SLEEPER_URL,"_blank");
   return b;
+}
+// --- REAL Sleeper API (read-only, no auth) ---
+const DEMO_LEAGUES=[
+  {name:"The Couch League", teams:10, season:"2026", scoring:"Half PPR"},
+  {name:"Sunday Scaries", teams:12, season:"2026", scoring:"Full PPR"},
+];
+function scoringLabel(l){
+  const rec = l.scoring_settings && l.scoring_settings.rec;
+  return rec===1?"Full PPR":rec===0.5?"Half PPR":rec?("PPR "+rec):"Standard";
+}
+async function findRealLeagues(username){
+  const r=await fetch(`https://api.sleeper.app/v1/user/${encodeURIComponent(username)}`);
+  if(!r.ok) return null;
+  const u=await r.json(); if(!u||!u.user_id) return null;
+  for(const season of ["2025","2024","2026"]){
+    const lr=await fetch(`https://api.sleeper.app/v1/user/${u.user_id}/leagues/nfl/${season}`);
+    if(lr.ok){ const ls=await lr.json();
+      if(ls&&ls.length) return ls.map(l=>({name:l.name, teams:l.total_rosters, season:l.season, scoring:scoringLabel(l)})); }
+  }
+  return [];
+}
+function statusTag(p){
+  if(!p.status) return "";
+  const map={Q:["Q","#fbbf24"],OUT:["OUT","#f87171"],IR:["IR","#f87171"],news:["NEWS","#60a5fa"]};
+  const m=map[p.status]||["•","#8b97c4"];
+  return `<span style="color:${m[1]};font-weight:800;font-size:9px;margin-right:5px">${m[0]}</span>`;
 }
 
 // ============================ SIM LOOP ============================
@@ -407,7 +444,10 @@ function renderConnect(){
   const w=el("div","login");
   let list="";
   if(app.foundLeagues){
-    list=`<div class="small" style="margin-top:20px;text-align:left">Pick a league to manage:</div>` +
+    const note = app.realData
+      ? `<div class="small" style="margin-top:20px;color:var(--you)">✓ Found ${app.foundLeagues.length} real Sleeper league(s)!</div>`
+      : `<div class="small" style="margin-top:20px;color:var(--gold)">No Sleeper account by that name — showing demo leagues. Enter a real Sleeper username to pull yours live.</div>`;
+    list=note + `<div class="small" style="text-align:left;margin-top:8px">Pick a league to manage:</div>` +
       app.foundLeagues.map((l,i)=>`<button class="card connectLeague" data-i="${i}"
         style="width:100%;text-align:left;cursor:pointer;margin-top:10px">
         <div style="font-weight:700">${l.name}</div>
@@ -422,18 +462,18 @@ function renderConnect(){
     ${list}
     <div class="small">🔒 Read-only & secure — we never change your Sleeper team.</div>`;
   a.appendChild(w);
-  $("findBtn").onclick=()=>{
+  $("findBtn").onclick=async ()=>{
     const ov=$("overlay");
     ov.innerHTML=`<div class="modal"><div class="box"><div style="font-size:34px">🔄</div>
       <div style="margin-top:10px;font-weight:700">Searching Sleeper…</div>
-      <div class="muted" style="font-size:12px;margin-top:6px">Reading your leagues</div></div></div>`;
-    setTimeout(()=>{ ov.innerHTML="";
-      app.foundLeagues=[
-        {name:"The Couch League", teams:10, season:"2026", scoring:"Half PPR"},
-        {name:"Sunday Scaries", teams:12, season:"2026", scoring:"Full PPR"},
-      ];
-      renderConnect();
-    }, 1300);
+      <div class="muted" style="font-size:12px;margin-top:6px">Reading your leagues live</div></div></div>`;
+    const username=$("su").value.trim();
+    let leagues=null;
+    try { leagues=await findRealLeagues(username); } catch(e){ leagues=null; }
+    ov.innerHTML="";
+    if(leagues && leagues.length){ app.foundLeagues=leagues; app.realData=true; }
+    else { app.foundLeagues=DEMO_LEAGUES; app.realData=false; }
+    renderConnect();
   };
   a.querySelectorAll(".connectLeague").forEach(b=> b.onclick=()=>{
     app.connectedLeague=app.foundLeagues[+b.dataset.i].name; app.sim=freshSim(); render();
@@ -503,7 +543,7 @@ function lineupCard(title, arr, side){
     if(p.shielded>0)fx.push(`🛡️ ${fmt(p.shielded)}`);
     if(p.robbed>0)fx.push(`🧲 ${fmt(p.robbed)}`);
     const d=el("div",cls,`<div class="pos">${p.pos}</div>
-      <div><div class="nm">${p.name}</div><div class="meta2">${fx.length?fx.join(" · "):p.opp}</div></div>
+      <div><div class="nm">${p.name}</div><div class="meta2">${fx.length?fx.join(" · "):statusTag(p)+p.opp}</div></div>
       <div class="pt">${p.pts.toFixed(1)}</div>`);
     if(tappable) d.onclick=()=>usePU(app.armed,p);
     c.appendChild(d);
@@ -514,7 +554,7 @@ function lineupCard(title, arr, side){
 // ============================ MY TEAM (synced from Sleeper) ============================
 function roRow(p){
   return el("div","plr",`<div class="pos">${p.pos}</div>
-    <div><div class="nm">${p.name}</div><div class="meta2">${p.opp} · proj ${p.proj}</div></div>
+    <div><div class="nm">${p.name}</div><div class="meta2">${statusTag(p)}${p.opp} · proj ${p.proj}</div></div>
     <div class="pt">${p.proj}</div>`);
 }
 function renderTeam(){
@@ -541,7 +581,7 @@ function renderPlayers(){
   const c=el("div","card");
   FREE_AGENTS.forEach(p=>{
     const row=el("div","plr",`<div class="pos">${p.pos}</div>
-      <div><div class="nm">${p.name}</div><div class="meta2">${p.opp} · proj ${p.proj}</div></div>
+      <div><div class="nm">${p.name}</div><div class="meta2">${statusTag(p)}${p.opp} · proj ${p.proj}</div></div>
       <div></div>`);
     const add=el("button","btn sm sec","Add ↗"); add.style.marginLeft="auto";
     add.onclick=()=>window.open(SLEEPER_URL,"_blank");
@@ -555,7 +595,7 @@ function renderPlayers(){
 function renderLeague(){
   const s=$("screen"); s.innerHTML="";
   const ts=el("div","tabset");
-  [["scoreboard","Scoreboard"],["standings","Standings"],["schedule","Schedule"]].forEach(([id,lab])=>{
+  [["scoreboard","Scores"],["standings","Standings"],["schedule","Schedule"],["chat","Trash Talk"]].forEach(([id,lab])=>{
     const b=el("button",app.leagueTab===id?"on":"",lab); b.onclick=()=>{app.leagueTab=id;renderLeague();}; ts.appendChild(b);
   });
   s.appendChild(ts);
@@ -580,7 +620,7 @@ function renderLeague(){
       html+=`<tr class="${t.me?'me':''}"><td>${i+1}</td><td>${t.team}</td><td>${t.w}-${t.l}</td><td>${t.pf}</td></tr>`;
     });
     html+=`</table>`; c.innerHTML=html; s.appendChild(c);
-  } else {
+  } else if(app.leagueTab==="schedule"){
     const c=el("div","card"); c.appendChild(el("h2","title","Your Schedule — 2026"));
     SCHEDULE.forEach(g=>{
       const r=el("div","schrow",`<span class="wk">Wk ${g.wk}</span>
@@ -589,6 +629,23 @@ function renderLeague(){
       c.appendChild(r);
     });
     s.appendChild(c);
+  } else {
+    const c=el("div","card"); c.appendChild(el("h2","title","League Chat"));
+    const box=el("div"); box.style.maxHeight="46vh"; box.style.overflowY="auto"; box.style.marginBottom="4px";
+    app.chat.forEach(m=>{
+      box.appendChild(el("div","",`<div style="margin-bottom:12px">
+        <b style="color:${m.me?'var(--you)':'var(--gold)'};font-size:13px">${m.who}</b>
+        <span class="muted" style="font-size:11px;margin-left:6px">${m.time}</span>
+        <div style="font-size:14px;margin-top:2px">${m.text}</div></div>`));
+    });
+    c.appendChild(box); s.appendChild(c);
+    const rowi=el("div","row");
+    const i=el("input","input"); i.placeholder="Talk some trash…"; i.style.margin="0";
+    const send=el("button","btn"); send.textContent="Send";
+    const fire=()=>{ const v=i.value.trim(); if(!v)return; app.chat.push({who:"You",me:true,text:v,time:"now"}); renderLeague(); };
+    send.onclick=fire; i.addEventListener("keydown",e=>{ if(e.key==="Enter")fire(); });
+    rowi.append(i,send); s.appendChild(rowi);
+    i.focus();
   }
 }
 
