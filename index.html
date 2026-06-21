@@ -3,473 +3,543 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Gridiron Gambit — Power-Up Fantasy Prototype</title>
+<title>Gridiron Gambit — Power-Up Fantasy</title>
 <style>
   :root {
-    --bg: #0b1020;
-    --panel: #141b33;
-    --panel2: #1b2444;
-    --line: #2a3566;
-    --txt: #e8ecf8;
-    --muted: #8b97c4;
-    --you: #34d399;
-    --opp: #f87171;
-    --gold: #fbbf24;
-    --ice: #60a5fa;
-    --boost: #c084fc;
+    --bg:#0b1020; --panel:#141b33; --panel2:#1b2444; --line:#2a3566;
+    --txt:#e8ecf8; --muted:#8b97c4; --you:#34d399; --opp:#f87171;
+    --gold:#fbbf24; --ice:#60a5fa; --boost:#c084fc; --rare:#f59e0b;
   }
-  * { box-sizing: border-box; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   body {
-    margin: 0;
-    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
-    background: radial-gradient(1200px 600px at 50% -10%, #1a2347 0%, var(--bg) 60%);
-    color: var(--txt);
-    padding: 16px;
+    margin:0; font-family:-apple-system,"Segoe UI",Roboto,sans-serif;
+    background:radial-gradient(900px 500px at 50% -10%, #1a2347 0%, var(--bg) 55%);
+    color:var(--txt); padding-bottom:74px;
   }
-  .wrap { max-width: 1100px; margin: 0 auto; }
-  h1 {
-    font-size: 22px; margin: 0 0 2px; letter-spacing: 0.5px;
-    display: flex; align-items: center; gap: 10px;
+  .app { max-width:520px; margin:0 auto; min-height:100vh; }
+  header.topbar {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 16px; border-bottom:1px solid var(--line); position:sticky; top:0;
+    background:rgba(11,16,32,.92); backdrop-filter:blur(6px); z-index:20;
   }
-  .tag { font-size: 11px; color: var(--muted); margin: 0 0 14px; }
+  header.topbar .brand { font-weight:800; font-size:16px; display:flex; gap:8px; align-items:center; }
+  header.topbar .pill { font-size:11px; color:var(--gold); border:1px solid var(--line); padding:4px 9px; border-radius:20px; }
+  .screen { padding:16px; }
+  h2.title { font-size:13px; text-transform:uppercase; letter-spacing:1px; color:var(--muted); margin:0 0 12px; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:14px; }
+  .muted { color:var(--muted); }
+  .row { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  button { font-family:inherit; cursor:pointer; }
+  .btn { background:var(--gold); color:#1a1300; border:none; border-radius:10px; padding:10px 14px; font-weight:700; font-size:14px; }
+  .btn.sec { background:var(--panel2); color:var(--txt); border:1px solid var(--line); }
+  .btn.sm { padding:7px 12px; font-size:13px; }
+  .btn:disabled { opacity:.4; cursor:not-allowed; }
 
-  /* Scoreboard */
-  .scoreboard {
-    display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
-    background: linear-gradient(180deg, var(--panel2), var(--panel));
-    border: 1px solid var(--line); border-radius: 16px; padding: 16px 22px; margin-bottom: 16px;
+  nav.tabbar {
+    position:fixed; bottom:0; left:0; right:0; display:flex; justify-content:center;
+    background:rgba(20,27,51,.97); border-top:1px solid var(--line); backdrop-filter:blur(8px); z-index:30;
   }
-  .team-score { text-align: center; }
-  .team-score .label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
-  .team-score .pts { font-size: 46px; font-weight: 800; line-height: 1; margin-top: 4px; }
-  .you .pts { color: var(--you); }
-  .opp .pts { color: var(--opp); }
-  .clock { text-align: center; padding: 0 24px; }
-  .clock .q { font-size: 13px; color: var(--gold); font-weight: 700; letter-spacing: 1px; }
-  .clock .time { font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; }
-  .clock .status { font-size: 11px; color: var(--muted); margin-top: 2px; min-height: 14px; }
+  nav.tabbar .inner { display:flex; max-width:520px; width:100%; }
+  nav.tabbar button {
+    flex:1; background:none; border:none; color:var(--muted); padding:10px 4px 8px;
+    font-size:10px; display:flex; flex-direction:column; align-items:center; gap:3px;
+  }
+  nav.tabbar button .i { font-size:19px; }
+  nav.tabbar button.active { color:var(--gold); }
 
-  .controls { display: flex; gap: 10px; margin-bottom: 18px; }
-  button.ctl {
-    background: var(--panel2); color: var(--txt); border: 1px solid var(--line);
-    border-radius: 10px; padding: 10px 18px; font-size: 14px; font-weight: 600; cursor: pointer;
-  }
-  button.ctl:hover { border-color: var(--gold); }
-  button.ctl.primary { background: var(--gold); color: #1a1300; border-color: var(--gold); }
+  .login { display:flex; flex-direction:column; justify-content:center; min-height:100vh; padding:28px; max-width:520px; margin:0 auto; }
+  .login .logo { font-size:40px; text-align:center; }
+  .login h1 { text-align:center; font-size:26px; margin:6px 0 2px; }
+  .login p.sub { text-align:center; color:var(--muted); margin:0 0 26px; font-size:13px; }
+  .input { width:100%; background:var(--panel2); border:1px solid var(--line); color:var(--txt);
+           border-radius:10px; padding:13px 14px; font-size:15px; margin-bottom:12px; }
+  .login .small { text-align:center; font-size:12px; color:var(--muted); margin-top:16px; }
 
-  /* Power-up tray */
-  .tray { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 18px; }
-  .pu {
-    position: relative; background: var(--panel); border: 1px solid var(--line);
-    border-radius: 14px; padding: 14px; cursor: pointer; overflow: hidden; transition: transform .08s;
-  }
-  .pu:hover:not(.disabled) { transform: translateY(-2px); }
-  .pu.armed { box-shadow: 0 0 0 2px var(--gold) inset; }
-  .pu.disabled { opacity: 0.45; cursor: not-allowed; }
-  .pu .name { font-weight: 700; font-size: 15px; display: flex; align-items: center; gap: 8px; }
-  .pu .desc { font-size: 11px; color: var(--muted); margin-top: 6px; line-height: 1.4; }
-  .pu .meta { font-size: 11px; margin-top: 10px; display: flex; justify-content: space-between; }
-  .pu .charges { color: var(--gold); font-weight: 700; }
-  .pu .cooldownbar {
-    position: absolute; left: 0; bottom: 0; height: 4px; background: var(--ice); width: 0%;
-  }
-  .icon { font-size: 18px; }
+  .scoreboard { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; }
+  .ts { text-align:center; } .ts .nm { font-size:12px; color:var(--muted); }
+  .ts .pts { font-size:38px; font-weight:800; line-height:1; } .ts.me .pts{color:var(--you);} .ts.op .pts{color:var(--opp);}
+  .clock { text-align:center; padding:0 14px; }
+  .clock .q { font-size:11px; color:var(--gold); font-weight:700; } .clock .tt { font-size:24px; font-weight:800; }
+  .clock .st { font-size:10px; color:var(--muted); min-height:12px; }
 
-  /* Rosters */
-  .field { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-  .roster { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px; }
-  .roster h2 { font-size: 14px; margin: 4px 6px 12px; text-transform: uppercase; letter-spacing: 1px; }
-  .roster.you h2 { color: var(--you); }
-  .roster.opp h2 { color: var(--opp); }
-  .player {
-    display: grid; grid-template-columns: 38px 1fr auto; align-items: center; gap: 10px;
-    background: var(--panel2); border: 1px solid transparent; border-radius: 10px;
-    padding: 9px 12px; margin-bottom: 8px; transition: border-color .1s;
-  }
-  .player.targetable { cursor: pointer; border-color: var(--gold); }
-  .player.targetable:hover { background: #232e57; }
-  .pos { font-size: 11px; font-weight: 800; color: var(--muted); background: #0d1dense; text-align: center;
-         background: #0d142b; border-radius: 6px; padding: 5px 0; }
-  .pname { font-weight: 600; font-size: 14px; }
-  .pstate { font-size: 10px; color: var(--muted); min-height: 12px; }
-  .ppts { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; }
-  .player.frozen { opacity: 0.55; }
-  .player.frozen .pstate { color: var(--ice); }
-  .player.boosted { box-shadow: 0 0 0 1px var(--boost) inset; }
-  .player.boosted .pstate { color: var(--boost); }
-  .badge { font-size: 14px; margin-left: 4px; }
+  .plr { display:grid; grid-template-columns:30px 1fr auto; gap:9px; align-items:center;
+         padding:9px 10px; border-radius:9px; background:var(--panel2); margin-bottom:7px; }
+  .plr .pos { font-size:10px; font-weight:800; color:var(--muted); background:#0d142b; border-radius:5px; padding:5px 0; text-align:center; }
+  .plr .nm { font-size:14px; font-weight:600; }
+  .plr .meta2 { font-size:10px; color:var(--muted); min-height:11px; }
+  .plr .pt { font-size:17px; font-weight:800; font-variant-numeric:tabular-nums; }
+  .plr.frozen{opacity:.55;} .plr.frozen .meta2{color:var(--ice);}
+  .plr.boosted{box-shadow:0 0 0 1px var(--boost) inset;} .plr.boosted .meta2{color:var(--boost);}
+  .plr.bench{opacity:.85;}
+  .plr.tappable{cursor:pointer;border:1px solid var(--gold);}
 
-  /* Feed */
-  .feed {
-    margin-top: 16px; background: var(--panel); border: 1px solid var(--line);
-    border-radius: 14px; padding: 12px 16px; height: 150px; overflow-y: auto; font-size: 13px;
-  }
-  .feed h2 { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin: 0 0 8px; }
-  .feed .line { padding: 3px 0; border-bottom: 1px solid #1a2244; }
-  .feed .line .t { color: var(--muted); font-variant-numeric: tabular-nums; margin-right: 8px; }
-  .feed .ev-score { color: var(--txt); }
-  .feed .ev-pu { color: var(--gold); font-weight: 600; }
-  .hint { font-size: 12px; color: var(--gold); min-height: 16px; margin-bottom: 8px; }
+  .puwrap { display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; }
+  .puchip { flex:0 0 auto; background:var(--panel2); border:1px solid var(--line); border-radius:12px;
+            padding:9px 11px; min-width:96px; text-align:center; position:relative; }
+  .puchip.armed { box-shadow:0 0 0 2px var(--gold) inset; }
+  .puchip.disabled { opacity:.4; }
+  .puchip .ic { font-size:20px; } .puchip .nm { font-size:11px; font-weight:700; margin-top:2px; }
+  .puchip .ct { font-size:10px; color:var(--gold); margin-top:3px; }
+  .puchip .cdbar { position:absolute; left:0; bottom:0; height:3px; background:var(--ice); }
+
+  .feed { height:120px; overflow-y:auto; font-size:12px; }
+  .feed .ln { padding:3px 0; border-bottom:1px solid #1a2244; }
+  .feed .t { color:var(--muted); margin-right:7px; }
+  .ev-pu { color:var(--gold); font-weight:600; } .ev-score{color:var(--txt);}
+
+  .tabset { display:flex; gap:8px; margin-bottom:14px; }
+  .tabset button { flex:1; background:var(--panel2); border:1px solid var(--line); color:var(--muted);
+                   border-radius:9px; padding:8px; font-size:12px; font-weight:600; }
+  .tabset button.on { color:var(--gold); border-color:var(--gold); }
+
+  table.std { width:100%; border-collapse:collapse; font-size:13px; }
+  table.std th { text-align:left; color:var(--muted); font-size:10px; text-transform:uppercase; padding:6px 4px; }
+  table.std td { padding:9px 4px; border-top:1px solid var(--line); }
+  table.std tr.me td { color:var(--you); font-weight:700; }
+
+  .schrow { display:flex; justify-content:space-between; padding:11px 4px; border-bottom:1px solid var(--line); font-size:13px; }
+  .schrow .wk { color:var(--muted); width:48px; } .schrow .res.w{color:var(--you);font-weight:700;} .schrow .res.l{color:var(--opp);font-weight:700;}
+
+  .store-item { display:grid; grid-template-columns:auto 1fr auto; gap:12px; align-items:center; }
+  .store-item .ic { font-size:26px; }
+  .rare-tag { font-size:9px; padding:2px 6px; border-radius:8px; background:#3a2a08; color:var(--rare); margin-left:6px; }
+  .cap-bar { height:8px; background:var(--panel2); border-radius:6px; overflow:hidden; margin-top:6px; }
+  .cap-bar > div { height:100%; background:var(--gold); }
+
+  .modal { position:fixed; inset:0; background:rgba(0,0,0,.78); display:flex; align-items:center; justify-content:center; z-index:50; padding:24px; }
+  .modal .box { background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:24px; max-width:340px; text-align:center; width:100%; }
+  .adscreen { background:linear-gradient(135deg,#1e293b,#0f172a); border-radius:12px; padding:34px 16px; margin-bottom:16px; }
+  .adscreen .big { font-size:34px; } .adscreen .ad-cd { font-size:13px; color:var(--muted); margin-top:8px; }
+  .toast { position:fixed; bottom:88px; left:50%; transform:translateX(-50%); background:var(--gold); color:#1a1300;
+           padding:10px 18px; border-radius:24px; font-weight:700; font-size:13px; z-index:60; box-shadow:0 6px 20px rgba(0,0,0,.4); }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <h1>🏈 Gridiron Gambit <span style="font-size:11px;color:var(--muted);font-weight:400;">power-up fantasy · prototype</span></h1>
-  <p class="tag">Simulated game — no real NFL data. Built to test whether the power-up gameplay feels fun. Speed up / pause anytime.</p>
-
-  <div class="scoreboard">
-    <div class="team-score you"><div class="label">Your Team</div><div class="pts" id="youScore">0.0</div></div>
-    <div class="clock">
-      <div class="q" id="quarter">PRE-GAME</div>
-      <div class="time" id="gameClock">15:00</div>
-      <div class="status" id="clockStatus">Press Kick Off to start</div>
-    </div>
-    <div class="team-score opp"><div class="label">Opponent</div><div class="pts" id="oppScore">0.0</div></div>
-  </div>
-
-  <div class="controls">
-    <button class="ctl primary" id="startBtn">▶ Kick Off</button>
-    <button class="ctl" id="speedBtn">⏩ Speed: 1x</button>
-    <button class="ctl" id="resetBtn">↺ Reset</button>
-  </div>
-
-  <div class="hint" id="hint">&nbsp;</div>
-
-  <div class="tray" id="tray"></div>
-
-  <div class="field">
-    <div class="roster you"><h2>Your Lineup</h2><div id="youRoster"></div></div>
-    <div class="roster opp"><h2>Opponent Lineup</h2><div id="oppRoster"></div></div>
-  </div>
-
-  <div class="feed">
-    <h2>Live Feed</h2>
-    <div id="feedLines"></div>
-  </div>
-</div>
+<div class="app" id="app"></div>
+<div id="overlay"></div>
 
 <script>
-// ---------- Game config ----------
-const QUARTER_SECONDS = 15 * 60;       // 15:00 per quarter (game time)
-const TICKS_PER_SECOND_BASE = 20;      // game-seconds advanced per real second at 1x
-const TICK_MS = 250;                   // real-world tick interval
-
-// Power-up durations are in GAME seconds
+// ============================ DATA ============================
 const POWERUPS = {
-  double:  { name: "Double Points", icon: "⚡", target: "you", dur: 120, charges: 2, cd: 90,
-             desc: "Your player scores 2× for 2 game-minutes. Pick the guy about to pop." },
-  freeze:  { name: "Freeze Player", icon: "🧊", target: "opp", dur: 60,  charges: 1, cd: 90,
-             desc: "An opponent's player earns ZERO points for 1 game-minute. Shut down their stud." },
-  surge:   { name: "Hail Mary",     icon: "🚀", target: "you", dur: 45,  charges: 1, cd: 0,
-             desc: "Your player scores 3× for 45s — but loses 5 pts if they don't score. Big risk." },
-  shield:  { name: "Bodyguard",     icon: "🛡️", target: "you", dur: 180, charges: 1, cd: 0,
-             desc: "Your player is immune to Freeze & Pickpocket for 3 game-minutes. Protect your star." },
-  steal:   { name: "Pickpocket",    icon: "🧲", target: "opp", dur: 90,  charges: 1, cd: 120,
-             desc: "For 90s, half of an opponent's points are stolen and added to YOUR team. Heist time." },
-  floor:   { name: "Sure Thing",    icon: "🎯", target: "you", dur: 60,  charges: 1, cd: 90,
-             desc: "Your player scores steady, guaranteed points every play for 1 minute. Safe & reliable." },
+  double: { name:"Double Pts", icon:"⚡", rarity:"common", target:"me",  dur:120, cd:60,
+            desc:"Your player scores 2× for 2 minutes." },
+  freeze: { name:"Freeze",      icon:"🧊", rarity:"rare",   target:"op",  dur:60,  cd:90,
+            desc:"Opponent player scores ZERO for 1 minute." },
+  surge:  { name:"Hail Mary",   icon:"🚀", rarity:"rare",   target:"me",  dur:45,  cd:0,
+            desc:"3× points for 45s, but -5 if they don't score." },
+  shield: { name:"Bodyguard",   icon:"🛡️", rarity:"common", target:"me",  dur:180, cd:0,
+            desc:"Immune to Freeze & Pickpocket for 3 min." },
+  steal:  { name:"Pickpocket",  icon:"🧲", rarity:"rare",   target:"op",  dur:90,  cd:120,
+            desc:"Steal half an opponent's points for 90s." },
+  floor:  { name:"Sure Thing",  icon:"🎯", rarity:"common", target:"me",  dur:60,  cd:60,
+            desc:"Steady guaranteed points for 1 minute." },
 };
+const POS_CFG = { QB:{rate:.55,min:.4,max:5.5}, RB:{rate:.4,min:.3,max:4}, WR:{rate:.38,min:.3,max:6},
+                  TE:{rate:.28,min:.2,max:3.5}, K:{rate:.15,min:1,max:3}, DEF:{rate:.3,min:.5,max:5} };
+const WEEKLY_EARN_CAP = 4;
 
-const POSITIONS = {
-  QB: { rate: 0.55, min: 0.4, max: 5.5 },
-  RB: { rate: 0.40, min: 0.3, max: 4.0 },
-  WR: { rate: 0.38, min: 0.3, max: 6.0 },
-  TE: { rate: 0.28, min: 0.2, max: 3.5 },
-  K:  { rate: 0.15, min: 1.0, max: 3.0 },
-};
+let nid = 0;
+const P = (name,pos,proj,opp) => ({ id:"p"+(nid++), name, pos, proj, opp,
+  pts:0, frozen:0, boosted:0, mult:1, hailmary:false, shielded:0, robbed:0, floored:0 });
 
-function makeRoster(names) {
-  return names.map((n, i) => ({
-    id: n.id, name: n.name, pos: n.pos,
-    pts: 0, frozen: 0, boosted: 0, boostMult: 1, hailmary: false,
-    shielded: 0, pickpocketed: 0, floored: 0,
-  }));
-}
-
-const YOU_NAMES = [
-  { id: "y0", name: "J. Burrow",   pos: "QB" },
-  { id: "y1", name: "B. Robinson", pos: "RB" },
-  { id: "y2", name: "A. St. Brown",pos: "WR" },
-  { id: "y3", name: "T. McBride",  pos: "TE" },
-  { id: "y4", name: "H. Butker",   pos: "K"  },
+const myStarters = [
+  P("J. Burrow","QB",21.4,"vs CLE"), P("B. Robinson","RB",17.8,"vs SEA"),
+  P("K. Williams","RB",13.2,"@ GB"), P("A. St. Brown","WR",18.9,"vs CHI"),
+  P("P. Nacua","WR",16.1,"@ SF"), P("T. McBride","TE",12.5,"vs LAR"),
+  P("J. Jeudy","WR",11.7,"vs CIN"), P("H. Butker","K",8.9,"@ DEN"),
+  P("Eagles D/ST","DEF",7.5,"vs NYG"),
 ];
-const OPP_NAMES = [
-  { id: "o0", name: "P. Mahomes",  pos: "QB" },
-  { id: "o1", name: "S. Barkley",  pos: "RB" },
-  { id: "o2", name: "J. Jefferson",pos: "WR" },
-  { id: "o3", name: "G. Kittle",   pos: "TE" },
-  { id: "o4", name: "J. Tucker",   pos: "K"  },
+const myBench = [ P("R. Rice","WR",10.2,"vs LV"), P("J. Mixon","RB",12.0,"@ TEN"),
+  P("D. Kincaid","TE",7.4,"vs MIA"), P("C. Boswell","K",8.1,"vs BAL") ];
+
+const oppStarters = [
+  P("P. Mahomes","QB",22.1,"@ DEN"), P("S. Barkley","RB",19.3,"vs NYG"),
+  P("D. Henry","RB",16.7,"vs CIN"), P("J. Jefferson","WR",20.2,"@ CHI"),
+  P("CeeDee Lamb","WR",17.4,"vs WAS"), P("G. Kittle","TE",13.1,"vs LAR"),
+  P("M. Nabers","WR",12.2,"@ PHI"), P("J. Tucker","K",9.2,"@ CIN"),
+  P("Ravens D/ST","DEF",8.0,"@ CIN"),
 ];
 
-// ---------- State ----------
-let state;
-function freshState() {
-  return {
-    running: false,
-    speed: 1,
-    gameSec: 0,                 // 0 .. 3600
-    you: makeRoster(YOU_NAMES),
-    opp: makeRoster(OPP_NAMES),
-    pu: Object.fromEntries(Object.entries(POWERUPS).map(([k, v]) => [k, { charges: v.charges, cd: 0 }])),
-    armed: null,
-    feed: [],
-  };
-}
+const FREE_AGENTS = [
+  P("J. Dobbins","RB",11.4,"@ KC"), P("W. Robinson","WR",9.8,"@ PHI"),
+  P("T. Hockenson","TE",9.1,"@ CHI"), P("J. Goff","QB",18.2,"@ MIN"),
+  P("R. Stevenson","RB",10.6,"vs NYJ"), P("K. Allen","WR",10.9,"vs LV"),
+  P("Steelers D/ST","DEF",7.2,"vs BAL"), P("J. Sanders","K",7.8,"vs NE"),
+];
 
-// ---------- Helpers ----------
-const $ = (id) => document.getElementById(id);
-const teamArr = (side) => (side === "you" ? state.you : state.opp);
-const findPlayer = (pid) => [...state.you, ...state.opp].find((p) => p.id === pid);
-function fmtClock(remaining) {
-  const m = Math.floor(remaining / 60);
-  const s = Math.floor(remaining % 60);
-  return `${m}:${s.toString().padStart(2, "0")}`;
-}
-function gameClockLabel() {
-  const q = Math.min(3, Math.floor(state.gameSec / QUARTER_SECONDS));
-  const into = state.gameSec - q * QUARTER_SECONDS;
-  const remaining = Math.max(0, QUARTER_SECONDS - into);
-  return { q: q + 1, remaining };
-}
-function pushFeed(text, cls) {
-  const { q, remaining } = gameClockLabel();
-  state.feed.unshift({ t: `Q${q} ${fmtClock(remaining)}`, text, cls });
-  state.feed = state.feed.slice(0, 60);
-}
+const LEAGUE = [
+  { team:"Your Team", w:7, l:3, pf:1284, me:true },
+  { team:"Gridiron Goblins", w:8, l:2, pf:1342 },
+  { team:"Dak to the Future", w:7, l:3, pf:1301 },
+  { team:"Burrow Bandits", w:6, l:4, pf:1255 },
+  { team:"Hurts So Good", w:5, l:5, pf:1198 },
+  { team:"CMC Hammer", w:5, l:5, pf:1176 },
+  { team:"Kelce's Angels", w:4, l:6, pf:1142 },
+  { team:"Waiver Wired", w:3, l:7, pf:1098 },
+  { team:"Bye Week Blues", w:3, l:7, pf:1055 },
+  { team:"The Tankers", w:2, l:8, pf:1011 },
+];
+const OTHER_MATCHUPS = [
+  { a:"Gridiron Goblins", as:96.4, b:"Hurts So Good", bs:88.1 },
+  { a:"Dak to the Future", as:102.7, b:"The Tankers", bs:71.3 },
+  { a:"CMC Hammer", as:79.5, b:"Kelce's Angels", bs:84.2 },
+  { a:"Waiver Wired", as:91.0, b:"Bye Week Blues", bs:90.6 },
+];
+const SCHEDULE = [
+  {wk:1,opp:"Bye Week Blues",res:"W",s:"112.4-98.1"},{wk:2,opp:"The Tankers",res:"W",s:"104.2-77.9"},
+  {wk:3,opp:"Gridiron Goblins",res:"L",s:"95.1-101.7"},{wk:4,opp:"CMC Hammer",res:"W",s:"120.6-88.3"},
+  {wk:5,opp:"Kelce's Angels",res:"W",s:"108.0-99.4"},{wk:6,opp:"Hurts So Good",res:"L",s:"89.2-94.0"},
+  {wk:7,opp:"Waiver Wired",res:"W",s:"115.3-101.1"},{wk:8,opp:"Dak to the Future",res:"L",s:"97.7-110.2"},
+  {wk:9,opp:"Burrow Bandits",res:"W",s:"103.5-92.8"},{wk:10,opp:"Bye Week Blues",res:"W",s:"99.9-85.4"},
+  {wk:11,opp:"Burrow Bandits",res:"—",s:"this week"},{wk:12,opp:"Gridiron Goblins",res:"—",s:"upcoming"},
+  {wk:13,opp:"Kelce's Angels",res:"—",s:"upcoming"},{wk:14,opp:"CMC Hammer",res:"—",s:"playoffs"},
+];
 
-// ---------- Simulation ----------
-function tick() {
-  if (!state.running) return;
-  const adv = TICKS_PER_SECOND_BASE * state.speed * (TICK_MS / 1000);
-  const prevSec = state.gameSec;
-  state.gameSec = Math.min(4 * QUARTER_SECONDS, state.gameSec + adv);
+// ============================ STATE ============================
+const QSEC = 15*60, TICK=250, BASE_SPD=20;
+let app = {
+  loggedIn:false, tab:"matchup", leagueTab:"scoreboard",
+  inv:{ double:1, freeze:0, surge:0, shield:0, steal:0, floor:0 },
+  earnedThisWeek:0,
+  sim:null, armed:null,
+};
+function freshSim(){
+  myStarters.forEach(reset); oppStarters.forEach(reset);
+  return { running:false, speed:1, gameSec:0, cd:{}, feed:[] };
+}
+function reset(p){ Object.assign(p,{pts:0,frozen:0,boosted:0,mult:1,hailmary:false,shielded:0,robbed:0,floored:0,pendingScore:undefined}); }
 
-  // quarter change announce
-  if (Math.floor(prevSec / QUARTER_SECONDS) !== Math.floor(state.gameSec / QUARTER_SECONDS)
-      && state.gameSec < 4 * QUARTER_SECONDS) {
-    pushFeed(`— End of Q${Math.floor(state.gameSec / QUARTER_SECONDS)} —`, "ev-score");
-  }
+// ============================ HELPERS ============================
+const $ = (id)=>document.getElementById(id);
+const el = (tag,cls,html)=>{ const e=document.createElement(tag); if(cls)e.className=cls; if(html!=null)e.innerHTML=html; return e; };
+function fmt(s){ const m=Math.floor(s/60), x=Math.floor(s%60); return m+":"+String(x).padStart(2,"0"); }
+function total(arr){ return Math.round(arr.reduce((a,p)=>a+p.pts,0)*10)/10; }
+function clk(){ const q=Math.min(3,Math.floor(app.sim.gameSec/QSEC)); const into=app.sim.gameSec-q*QSEC;
+  return { q:q+1, rem:Math.max(0,QSEC-into) }; }
+function feed(t,c){ const {q,rem}=clk(); app.sim.feed.unshift({t:`Q${q} ${fmt(rem)}`,txt:t,c}); app.sim.feed=app.sim.feed.slice(0,40); }
+function toast(msg){ const t=el("div","toast",msg); document.body.appendChild(t); setTimeout(()=>t.remove(),1800); }
 
-  // decay timers (in game seconds)
-  [...state.you, ...state.opp].forEach((p) => {
-    if (p.frozen > 0) { p.frozen = Math.max(0, p.frozen - adv); if (p.frozen === 0) { pushFeed(`${p.name} is back in play.`, "ev-pu"); } }
-    if (p.boosted > 0) {
-      p.boosted = Math.max(0, p.boosted - adv);
-      if (p.boosted === 0) {
-        if (p.hailmary && p.pendingScore === false) { p.pts = Math.max(0, p.pts - 5); pushFeed(`Hail Mary fizzled — ${p.name} -5 pts.`, "ev-pu"); }
-        p.boostMult = 1; p.hailmary = false; p.pendingScore = undefined;
-        pushFeed(`Boost expired on ${p.name}.`, "ev-pu");
-      }
-    }
-    if (p.shielded > 0) { p.shielded = Math.max(0, p.shielded - adv); if (p.shielded === 0) pushFeed(`${p.name}'s Bodyguard clocks out.`, "ev-pu"); }
-    if (p.pickpocketed > 0) { p.pickpocketed = Math.max(0, p.pickpocketed - adv); if (p.pickpocketed === 0) pushFeed(`Pickpocket on ${p.name} ended.`, "ev-pu"); }
-    if (p.floored > 0) p.floored = Math.max(0, p.floored - adv);
+// ============================ SIM LOOP ============================
+function tick(){
+  if(!app.loggedIn || app.tab!=="matchup" || !app.sim || !app.sim.running) return;
+  const adv = BASE_SPD*app.sim.speed*(TICK/1000);
+  const prev = app.sim.gameSec;
+  app.sim.gameSec = Math.min(4*QSEC, app.sim.gameSec+adv);
+  if(Math.floor(prev/QSEC)!==Math.floor(app.sim.gameSec/QSEC) && app.sim.gameSec<4*QSEC)
+    feed(`— End of Q${Math.floor(app.sim.gameSec/QSEC)} —`,"ev-score");
+
+  [...myStarters,...oppStarters].forEach(p=>{
+    if(p.frozen>0){ p.frozen=Math.max(0,p.frozen-adv); if(p.frozen===0) feed(`${p.name} back in play.`,"ev-pu"); }
+    if(p.boosted>0){ p.boosted=Math.max(0,p.boosted-adv);
+      if(p.boosted===0){ if(p.hailmary&&p.pendingScore===false){p.pts=Math.max(0,p.pts-5);feed(`Hail Mary fizzled — ${p.name} -5.`,"ev-pu");}
+        p.mult=1;p.hailmary=false;p.pendingScore=undefined; } }
+    if(p.shielded>0) p.shielded=Math.max(0,p.shielded-adv);
+    if(p.robbed>0) p.robbed=Math.max(0,p.robbed-adv);
+    if(p.floored>0) p.floored=Math.max(0,p.floored-adv);
   });
-  Object.values(state.pu).forEach((p) => { if (p.cd > 0) p.cd = Math.max(0, p.cd - adv); });
+  Object.keys(app.sim.cd).forEach(k=>{ if(app.sim.cd[k]>0) app.sim.cd[k]=Math.max(0,app.sim.cd[k]-adv); });
 
-  // scoring chances
-  const dtSeconds = adv;
-  [...state.you, ...state.opp].forEach((p) => {
-    if (p.frozen > 0) return;
-    const cfg = POSITIONS[p.pos];
-    // Sure Thing forces reliable scoring; otherwise normal per-tick chance
-    const chance = p.floored > 0 ? 1 : cfg.rate * (dtSeconds / 30);
-    if (Math.random() < chance) {
-      let gain = p.floored > 0
-        ? cfg.min + Math.random() * (cfg.max - cfg.min) * 0.4   // steady, modest
-        : cfg.min + Math.random() * (cfg.max - cfg.min);
-      gain *= p.boostMult;
-      gain = Math.round(gain * 10) / 10;
-
-      // Pickpocket: opponent loses half, your team grabs it
-      let stolen = 0;
-      if (p.pickpocketed > 0 && state.opp.includes(p)) {
-        stolen = Math.round((gain / 2) * 10) / 10;
-        gain = Math.round((gain - stolen) * 10) / 10;
-        const thief = teamArr("you").reduce((a, b) => (b.pts >= a.pts ? b : a));
-        thief.pts = Math.round((thief.pts + stolen) * 10) / 10;
-      }
-
-      p.pts = Math.round((p.pts + gain) * 10) / 10;
-      if (p.hailmary) p.pendingScore = true;
-      const mult = p.boostMult > 1 ? ` (${p.boostMult}×!)` : "";
-      const floorTag = p.floored > 0 ? " 🎯" : "";
-      pushFeed(`${p.name} +${gain}${mult}${floorTag}`, "ev-score");
-      if (stolen > 0) pushFeed(`🧲 Pickpocket! +${stolen} swiped from ${p.name}.`, "ev-pu");
+  [...myStarters,...oppStarters].forEach(p=>{
+    if(p.frozen>0) return;
+    const c=POS_CFG[p.pos]; const chance = p.floored>0?1:c.rate*(adv/30);
+    if(Math.random()<chance){
+      let g = p.floored>0 ? c.min+Math.random()*(c.max-c.min)*0.4 : c.min+Math.random()*(c.max-c.min);
+      g*=p.mult; g=Math.round(g*10)/10;
+      let stolen=0;
+      if(p.robbed>0 && oppStarters.includes(p)){ stolen=Math.round(g/2*10)/10; g=Math.round((g-stolen)*10)/10;
+        const thief=myStarters.reduce((a,b)=>b.pts>=a.pts?b:a); thief.pts=Math.round((thief.pts+stolen)*10)/10; }
+      p.pts=Math.round((p.pts+g)*10)/10; if(p.hailmary)p.pendingScore=true;
+      const m=p.mult>1?` (${p.mult}×)`:""; feed(`${p.name} +${g}${m}`,"ev-score");
+      if(stolen>0) feed(`🧲 +${stolen} swiped from ${p.name}.`,"ev-pu");
     }
   });
 
-  if (state.gameSec >= 4 * QUARTER_SECONDS) {
-    state.running = false;
-    const ys = teamTotal("you"), os = teamTotal("opp");
-    const verdict = ys > os ? "🏆 You WIN!" : ys < os ? "💀 You lose." : "🤝 Tie game.";
-    pushFeed(`FINAL — ${verdict}`, "ev-pu");
+  if(app.sim.gameSec>=4*QSEC){ app.sim.running=false;
+    const ms=total(myStarters), os=total(oppStarters);
+    feed(`FINAL — ${ms>os?"🏆 You WIN!":ms<os?"💀 You lose.":"🤝 Tie."}`,"ev-pu"); }
+  if(app.tab==="matchup") renderMatchup();
+}
+
+// ============================ POWER-UPS ============================
+function armPU(k){
+  if((app.inv[k]||0)<=0 || (app.sim.cd[k]||0)>0 || !app.sim.running) return;
+  app.armed = app.armed===k ? null : k; renderMatchup();
+}
+function usePU(k,p){
+  const cfg=POWERUPS[k];
+  const side = myStarters.includes(p)?"me":"op";
+  if(side!==cfg.target){ toast(cfg.target==="me"?"Target YOUR player":"Target the OPPONENT"); return; }
+  if((k==="freeze"||k==="steal") && p.shielded>0){
+    app.inv[k]--; app.sim.cd[k]=cfg.cd; app.armed=null;
+    feed(`🛡️ ${p.name}'s Bodyguard blocked your ${cfg.name}!`,"ev-pu"); renderMatchup(); return;
   }
-  render();
+  app.inv[k]--; app.sim.cd[k]=cfg.cd; app.armed=null;
+  if(k==="freeze"){ p.frozen=cfg.dur; feed(`🧊 FROZE ${p.name} for 1:00!`,"ev-pu"); }
+  else if(k==="double"){ p.boosted=cfg.dur; p.mult=2; feed(`⚡ Double Points on ${p.name}!`,"ev-pu"); }
+  else if(k==="surge"){ p.boosted=cfg.dur; p.mult=3; p.hailmary=true; p.pendingScore=false; feed(`🚀 Hail Mary on ${p.name}!`,"ev-pu"); }
+  else if(k==="shield"){ p.shielded=cfg.dur; feed(`🛡️ Bodyguard on ${p.name}.`,"ev-pu"); }
+  else if(k==="steal"){ p.robbed=cfg.dur; feed(`🧲 Pickpocket on ${p.name}!`,"ev-pu"); }
+  else if(k==="floor"){ p.floored=cfg.dur; feed(`🎯 Sure Thing on ${p.name}.`,"ev-pu"); }
+  renderMatchup();
 }
 
-function teamTotal(side) {
-  return Math.round(teamArr(side).reduce((a, p) => a + p.pts, 0) * 10) / 10;
+// ============================ AD / EARN ============================
+function watchAd(k){
+  if(app.earnedThisWeek>=WEEKLY_EARN_CAP){ toast("Weekly earn limit reached"); return; }
+  let left=3;
+  const ov=$("overlay");
+  const draw=()=> ov.innerHTML = `<div class="modal"><div class="box">
+      <div class="adscreen"><div class="big">📺</div><div style="font-weight:700;margin-top:8px">Sponsored</div>
+      <div class="ad-cd">Reward in ${left}s…</div></div>
+      <div class="muted" style="font-size:12px">Watch to earn 1 ${POWERUPS[k].name}</div></div></div>`;
+  draw();
+  const iv=setInterval(()=>{ left--; if(left<=0){ clearInterval(iv); ov.innerHTML="";
+      app.inv[k]=(app.inv[k]||0)+1; app.earnedThisWeek++; toast(`+1 ${POWERUPS[k].name} earned!`); renderStore();
+    } else draw(); },1000);
 }
 
-// ---------- Power-ups ----------
-function armPowerup(key) {
-  const cfg = POWERUPS[key], st = state.pu[key];
-  if (st.charges <= 0 || st.cd > 0 || !state.running) return;
-  state.armed = state.armed === key ? null : key;
-  render();
+// ============================ RENDER: SHELL ============================
+function render(){
+  if(!app.loggedIn){ renderLogin(); return; }
+  $("app").innerHTML="";
+  const top=el("header","topbar");
+  top.innerHTML=`<div class="brand">🏈 Gridiron Gambit</div><div class="pill">Week 11 · 7-3</div>`;
+  $("app").appendChild(top);
+  const scr=el("div"); scr.id="screen"; scr.className="screen"; $("app").appendChild(scr);
+  renderTab();
+  renderNav();
 }
-
-function applyPowerup(key, player) {
-  const cfg = POWERUPS[key], st = state.pu[key];
-
-  // Bodyguard blocks the two hostile power-ups
-  if ((key === "freeze" || key === "steal") && player.shielded > 0) {
-    st.charges -= 1; st.cd = cfg.cd; state.armed = null;
-    pushFeed(`🛡️ ${player.name}'s Bodyguard blocked your ${cfg.name}!`, "ev-pu");
-    render();
-    return;
-  }
-
-  st.charges -= 1; st.cd = cfg.cd; state.armed = null;
-  if (key === "freeze") {
-    player.frozen = cfg.dur;
-    pushFeed(`🧊 You FROZE ${player.name} for 1:00!`, "ev-pu");
-  } else if (key === "double") {
-    player.boosted = cfg.dur; player.boostMult = 2;
-    pushFeed(`⚡ Double Points on ${player.name}!`, "ev-pu");
-  } else if (key === "surge") {
-    player.boosted = cfg.dur; player.boostMult = 3; player.hailmary = true; player.pendingScore = false;
-    pushFeed(`🚀 Hail Mary! ${player.name} at 3× — boom or bust.`, "ev-pu");
-  } else if (key === "shield") {
-    player.shielded = cfg.dur;
-    pushFeed(`🛡️ Bodyguard on ${player.name} — frost-proof for 3:00.`, "ev-pu");
-  } else if (key === "steal") {
-    player.pickpocketed = cfg.dur;
-    pushFeed(`🧲 Pickpocket active on ${player.name} — start lifting points!`, "ev-pu");
-  } else if (key === "floor") {
-    player.floored = cfg.dur;
-    pushFeed(`🎯 Sure Thing on ${player.name} — steady points incoming.`, "ev-pu");
-  }
-  render();
-}
-
-function onPlayerClick(pid) {
-  if (!state.armed) return;
-  const cfg = POWERUPS[state.armed];
-  const player = findPlayer(pid);
-  const side = state.you.includes(player) ? "you" : "opp";
-  if (side !== cfg.target) {
-    $("hint").textContent = cfg.target === "you" ? "That power-up targets YOUR players." : "That power-up targets the OPPONENT's players.";
-    return;
-  }
-  applyPowerup(state.armed, player);
-  $("hint").textContent = "";
-}
-
-// ---------- Render ----------
-function render() {
-  $("youScore").textContent = teamTotal("you").toFixed(1);
-  $("oppScore").textContent = teamTotal("opp").toFixed(1);
-  const { q, remaining } = gameClockLabel();
-  const done = state.gameSec >= 4 * QUARTER_SECONDS;
-  $("quarter").textContent = state.gameSec === 0 && !state.running ? "PRE-GAME" : done ? "FINAL" : `QUARTER ${q}`;
-  $("gameClock").textContent = done ? "0:00" : fmtClock(remaining);
-  $("clockStatus").textContent = done ? "Game over — Reset to replay"
-    : state.running ? (state.armed ? "⚠ Pick a target player" : "Live") : "Paused";
-
-  // tray
-  $("tray").innerHTML = "";
-  Object.entries(POWERUPS).forEach(([key, cfg]) => {
-    const st = state.pu[key];
-    const disabled = st.charges <= 0 || st.cd > 0 || !state.running;
-    const div = document.createElement("div");
-    div.className = "pu" + (state.armed === key ? " armed" : "") + (disabled ? " disabled" : "");
-    const cdPct = cfg.cd > 0 ? (st.cd / cfg.cd) * 100 : 0;
-    div.innerHTML = `
-      <div class="name"><span class="icon">${cfg.icon}</span>${cfg.name}</div>
-      <div class="desc">${cfg.desc}</div>
-      <div class="meta">
-        <span class="charges">${st.charges} left</span>
-        <span style="color:var(--muted)">${st.cd > 0 ? "cooldown " + Math.ceil(st.cd) + "s" : (st.charges>0?"ready":"used up")}</span>
-      </div>
-      <div class="cooldownbar" style="width:${cdPct}%"></div>`;
-    div.onclick = () => armPowerup(key);
-    $("tray").appendChild(div);
+function renderNav(){
+  const tabs=[["matchup","Matchup","🥊"],["team","My Team","📋"],["players","Players","🔁"],
+              ["league","League","🏆"],["store","Power-Ups","⚡"]];
+  let nav=$("nav"); if(nav) nav.remove();
+  nav=el("nav","tabbar"); nav.id="nav";
+  const inner=el("div","inner");
+  tabs.forEach(([id,label,ic])=>{
+    const b=el("button",app.tab===id?"active":"",`<span class="i">${ic}</span>${label}`);
+    b.onclick=()=>{ app.tab=id; app.armed=null; render(); };
+    inner.appendChild(b);
   });
-
-  renderRoster("you", "youRoster");
-  renderRoster("opp", "oppRoster");
-  renderFeed();
+  nav.appendChild(inner); document.body.appendChild(nav);
+}
+function renderTab(){
+  if(app.tab==="matchup") renderMatchup();
+  else if(app.tab==="team") renderTeam();
+  else if(app.tab==="players") renderPlayers();
+  else if(app.tab==="league") renderLeague();
+  else if(app.tab==="store") renderStore();
 }
 
-function renderRoster(side, containerId) {
-  const armedCfg = state.armed ? POWERUPS[state.armed] : null;
-  const targetable = armedCfg && armedCfg.target === side;
-  const c = $(containerId); c.innerHTML = "";
-  teamArr(side).forEach((p) => {
-    const div = document.createElement("div");
-    let cls = "player";
-    if (p.frozen > 0) cls += " frozen";
-    if (p.boosted > 0) cls += " boosted";
-    if (targetable) cls += " targetable";
-    div.className = cls;
-    const fx = [];
-    if (p.frozen > 0)      fx.push(`🧊 frozen ${fmtClock(p.frozen)}`);
-    if (p.boosted > 0)     fx.push(`${p.hailmary ? "🚀 3×" : "⚡ 2×"} ${fmtClock(p.boosted)}`);
-    if (p.floored > 0)     fx.push(`🎯 sure ${fmtClock(p.floored)}`);
-    if (p.shielded > 0)    fx.push(`🛡️ ${fmtClock(p.shielded)}`);
-    if (p.pickpocketed > 0) fx.push(`🧲 robbed ${fmtClock(p.pickpocketed)}`);
-    const state_txt = fx.join(" · ");
-    const badge = [p.frozen > 0 ? "🧊" : "", p.shielded > 0 ? "🛡️" : "",
-                   p.boosted > 0 ? (p.hailmary ? "🚀" : "⚡") : "", p.floored > 0 ? "🎯" : "",
-                   p.pickpocketed > 0 ? "🧲" : ""].join("");
-    div.innerHTML = `
-      <div class="pos">${p.pos}</div>
-      <div>
-        <div class="pname">${p.name}<span class="badge">${badge}</span></div>
-        <div class="pstate">${state_txt}</div>
-      </div>
-      <div class="ppts">${p.pts.toFixed(1)}</div>`;
-    if (targetable) div.onclick = () => onPlayerClick(p.id);
-    c.appendChild(div);
+// ============================ LOGIN ============================
+function renderLogin(){
+  const a=$("app"); a.innerHTML="";
+  const w=el("div","login");
+  w.innerHTML=`
+    <div class="logo">🏈</div>
+    <h1>Gridiron Gambit</h1>
+    <p class="sub">Fantasy football — with power-ups.</p>
+    <input class="input" id="u" placeholder="Username" value="commish_greg"/>
+    <input class="input" id="pw" type="password" placeholder="Password" value="password"/>
+    <button class="btn" id="loginBtn">Log In</button>
+    <div class="small">No account? <b style="color:var(--gold)">Sign up free</b> · or Connect Sleeper league</div>`;
+  a.appendChild(w);
+  $("loginBtn").onclick=()=>{ app.loggedIn=true; app.sim=freshSim(); render(); };
+}
+
+// ============================ MATCHUP ============================
+function renderMatchup(){
+  const s=$("screen"); if(!s) return; s.innerHTML="";
+  const sb=el("div","card");
+  const {q,rem}=clk(); const done=app.sim.gameSec>=4*QSEC;
+  sb.innerHTML=`<div class="scoreboard">
+    <div class="ts me"><div class="nm">Your Team</div><div class="pts">${total(myStarters).toFixed(1)}</div></div>
+    <div class="clock"><div class="q">${app.sim.gameSec===0&&!app.sim.running?"PREGAME":done?"FINAL":"Q"+q}</div>
+      <div class="tt">${done?"0:00":fmt(rem)}</div>
+      <div class="st">${done?"Final":app.sim.running?(app.armed?"⚠ pick target":"LIVE"):"Paused"}</div></div>
+    <div class="ts op"><div class="nm">Burrow Bandits</div><div class="pts">${total(oppStarters).toFixed(1)}</div></div>
+  </div>`;
+  s.appendChild(sb);
+
+  const ctl=el("div","row"); ctl.style.marginBottom="14px";
+  const start=el("button","btn", app.sim.running?"⏸ Pause":(app.sim.gameSec>0?"▶ Resume":"▶ Kick Off"));
+  start.onclick=()=>{ if(app.sim.gameSec>=4*QSEC)return; app.sim.running=!app.sim.running;
+    if(app.sim.running&&app.sim.gameSec===0)feed("Kickoff! Live.","ev-pu"); renderMatchup(); };
+  const spd=el("button","btn sec","⏩ "+app.sim.speed+"x");
+  spd.onclick=()=>{ const a=[1,2,4]; app.sim.speed=a[(a.indexOf(app.sim.speed)+1)%3]; renderMatchup(); };
+  const rs=el("button","btn sec","↺ Reset");
+  rs.onclick=()=>{ app.sim=freshSim(); app.armed=null; renderMatchup(); };
+  ctl.append(start,spd,rs); s.appendChild(ctl);
+
+  const trayCard=el("div","card");
+  trayCard.appendChild(el("h2","title","Your Power-Ups — tap to arm, then tap a player"));
+  const tray=el("div","puwrap");
+  Object.entries(POWERUPS).forEach(([k,cfg])=>{
+    const have=app.inv[k]||0, cd=app.sim.cd[k]||0;
+    const dis = have<=0||cd>0||!app.sim.running;
+    const chip=el("div","puchip"+(app.armed===k?" armed":"")+(dis?" disabled":""));
+    chip.innerHTML=`<div class="ic">${cfg.icon}</div><div class="nm">${cfg.name}</div>
+      <div class="ct">${cd>0?"cd "+Math.ceil(cd)+"s":"x"+have}</div>
+      ${cd>0?`<div class="cdbar" style="width:${cd/cfg.cd*100}%"></div>`:""}`;
+    chip.onclick=()=>armPU(k);
+    tray.appendChild(chip);
   });
-}
+  trayCard.appendChild(tray);
+  if(Object.values(app.inv).every(v=>v<=0))
+    trayCard.appendChild(el("div","muted","<div style='font-size:12px;margin-top:8px'>Out of power-ups — earn more in the ⚡ Power-Ups tab.</div>"));
+  s.appendChild(trayCard);
 
-function renderFeed() {
-  const c = $("feedLines"); c.innerHTML = "";
-  state.feed.forEach((f) => {
-    const d = document.createElement("div");
-    d.className = "line";
-    d.innerHTML = `<span class="t">${f.t}</span><span class="${f.cls}">${f.text}</span>`;
+  s.appendChild(lineupCard("Your Starters", myStarters, "me"));
+  s.appendChild(lineupCard("Burrow Bandits", oppStarters, "op"));
+
+  const fc=el("div","card"); fc.appendChild(el("h2","title","Live Feed"));
+  const f=el("div","feed");
+  app.sim.feed.forEach(x=> f.appendChild(el("div","ln",`<span class="t">${x.t}</span><span class="${x.c}">${x.txt}</span>`)));
+  fc.appendChild(f); s.appendChild(fc);
+}
+function lineupCard(title, arr, side){
+  const c=el("div","card"); c.appendChild(el("h2","title",title));
+  const armedCfg=app.armed?POWERUPS[app.armed]:null;
+  const tappable=armedCfg && armedCfg.target===side;
+  arr.forEach(p=>{
+    let cls="plr"+(p.frozen>0?" frozen":"")+(p.boosted>0?" boosted":"")+(tappable?" tappable":"");
+    const fx=[];
+    if(p.frozen>0)fx.push(`🧊 ${fmt(p.frozen)}`);
+    if(p.boosted>0)fx.push(`${p.hailmary?"🚀3×":"⚡2×"} ${fmt(p.boosted)}`);
+    if(p.floored>0)fx.push(`🎯 ${fmt(p.floored)}`);
+    if(p.shielded>0)fx.push(`🛡️ ${fmt(p.shielded)}`);
+    if(p.robbed>0)fx.push(`🧲 ${fmt(p.robbed)}`);
+    const d=el("div",cls,`<div class="pos">${p.pos}</div>
+      <div><div class="nm">${p.name}</div><div class="meta2">${fx.length?fx.join(" · "):p.opp}</div></div>
+      <div class="pt">${p.pts.toFixed(1)}</div>`);
+    if(tappable) d.onclick=()=>usePU(app.armed,p);
     c.appendChild(d);
   });
+  return c;
 }
 
-// ---------- Controls ----------
-$("startBtn").onclick = () => {
-  if (state.gameSec >= 4 * QUARTER_SECONDS) return;
-  state.running = !state.running;
-  $("startBtn").textContent = state.running ? "⏸ Pause" : "▶ Resume";
-  if (state.running && state.gameSec === 0) pushFeed("Kickoff! Game is live.", "ev-pu");
-  render();
-};
-$("speedBtn").onclick = () => {
-  const speeds = [1, 2, 4];
-  state.speed = speeds[(speeds.indexOf(state.speed) + 1) % speeds.length];
-  $("speedBtn").textContent = `⏩ Speed: ${state.speed}x`;
-};
-$("resetBtn").onclick = () => {
-  state = freshState();
-  $("startBtn").textContent = "▶ Kick Off";
-  $("hint").textContent = "";
-  render();
-};
+// ============================ MY TEAM ============================
+function renderTeam(){
+  const s=$("screen"); s.innerHTML="";
+  s.appendChild(el("div","card","<h2 class='title'>Set Your Lineup — Week 11</h2><div class='muted' style='font-size:12px'>Tap a bench player, then tap a starter of the same position to swap. Lineups lock at kickoff.</div>"));
+  const start=el("div","card"); start.appendChild(el("h2","title","Starters"));
+  myStarters.forEach(p=> start.appendChild(rosterRow(p,true)));
+  s.appendChild(start);
+  const bench=el("div","card"); bench.appendChild(el("h2","title","Bench"));
+  myBench.forEach(p=> bench.appendChild(rosterRow(p,false)));
+  s.appendChild(bench);
+}
+let swapPick=null;
+function rosterRow(p,isStarter){
+  const d=el("div","plr"+(isStarter?"":" bench")+(swapPick===p?" tappable":""),
+    `<div class="pos">${p.pos}</div>
+     <div><div class="nm">${p.name}</div><div class="meta2">${p.opp} · proj ${p.proj}</div></div>
+     <div class="pt">${p.proj}</div>`);
+  d.onclick=()=>{
+    if(!isStarter){ swapPick = swapPick===p?null:p; renderTeam(); return; }
+    if(swapPick){
+      if(swapPick.pos!==p.pos){ toast(`Swap needs a ${p.pos}`); return; }
+      const bi=myBench.indexOf(swapPick), si=myStarters.indexOf(p);
+      myStarters[si]=swapPick; myBench[bi]=p; swapPick=null; toast("Lineup updated"); renderTeam();
+    }
+  };
+  return d;
+}
 
-// ---------- Boot ----------
-state = freshState();
+// ============================ PLAYERS ============================
+function renderPlayers(){
+  const s=$("screen"); s.innerHTML="";
+  s.appendChild(el("div","card","<h2 class='title'>Free Agents & Waiver Wire</h2><div class='muted' style='font-size:12px'>FAAB budget: <b style='color:var(--gold)'>$74</b> remaining · Waivers process Wed 3 AM</div>"));
+  const c=el("div","card");
+  FREE_AGENTS.forEach(p=>{
+    const row=el("div","plr",`<div class="pos">${p.pos}</div>
+      <div><div class="nm">${p.name}</div><div class="meta2">${p.opp} · proj ${p.proj}</div></div>
+      <div></div>`);
+    const add=el("button","btn sm","+ Add"); add.style.marginLeft="auto";
+    add.onclick=()=>{ toast(`Claim submitted for ${p.name}`); add.textContent="Claimed"; add.disabled=true; };
+    row.lastElementChild.appendChild(add);
+    c.appendChild(row);
+  });
+  s.appendChild(c);
+}
+
+// ============================ LEAGUE ============================
+function renderLeague(){
+  const s=$("screen"); s.innerHTML="";
+  const ts=el("div","tabset");
+  [["scoreboard","Scoreboard"],["standings","Standings"],["schedule","Schedule"]].forEach(([id,lab])=>{
+    const b=el("button",app.leagueTab===id?"on":"",lab); b.onclick=()=>{app.leagueTab=id;renderLeague();}; ts.appendChild(b);
+  });
+  s.appendChild(ts);
+
+  if(app.leagueTab==="scoreboard"){
+    const me=el("div","card");
+    me.innerHTML=`<h2 class="title">Your Matchup</h2>
+      <div class="row"><div><b style="color:var(--you)">Your Team</b><div class="muted" style="font-size:12px">7-3</div></div>
+      <div style="font-size:22px;font-weight:800">${total(myStarters).toFixed(1)} – ${total(oppStarters).toFixed(1)}</div>
+      <div style="text-align:right"><b style="color:var(--opp)">Burrow Bandits</b><div class="muted" style="font-size:12px">6-4</div></div></div>`;
+    s.appendChild(me);
+    OTHER_MATCHUPS.forEach(m=>{
+      const c=el("div","card");
+      c.innerHTML=`<div class="row"><div>${m.a}</div><b>${m.as}</b></div>
+        <div class="row" style="margin-top:6px"><div>${m.b}</div><b>${m.bs}</b></div>`;
+      s.appendChild(c);
+    });
+  } else if(app.leagueTab==="standings"){
+    const c=el("div","card");
+    let html=`<table class="std"><tr><th>#</th><th>Team</th><th>W-L</th><th>PF</th></tr>`;
+    LEAGUE.slice().sort((a,b)=>b.w-a.w||b.pf-a.pf).forEach((t,i)=>{
+      html+=`<tr class="${t.me?'me':''}"><td>${i+1}</td><td>${t.team}</td><td>${t.w}-${t.l}</td><td>${t.pf}</td></tr>`;
+    });
+    html+=`</table>`; c.innerHTML=html; s.appendChild(c);
+  } else {
+    const c=el("div","card"); c.appendChild(el("h2","title","Your Schedule — 2026"));
+    SCHEDULE.forEach(g=>{
+      const r=el("div","schrow",`<span class="wk">Wk ${g.wk}</span>
+        <span style="flex:1">${g.opp}</span>
+        <span class="res ${g.res==='W'?'w':g.res==='L'?'l':''}">${g.res==='—'?g.s:g.res+' '+g.s}</span>`);
+      c.appendChild(r);
+    });
+    s.appendChild(c);
+  }
+}
+
+// ============================ STORE / EARN ============================
+function renderStore(){
+  const s=$("screen"); if(!s) return; s.innerHTML="";
+  const head=el("div","card");
+  head.innerHTML=`<h2 class="title">Earn Power-Ups</h2>
+    <div class="muted" style="font-size:13px">You get <b style="color:var(--gold)">1 free</b> power-up each week. Watch a short ad to earn more.</div>
+    <div class="row" style="margin-top:10px;font-size:12px"><span>Earned this week</span><span><b>${app.earnedThisWeek}/${WEEKLY_EARN_CAP}</b></span></div>
+    <div class="cap-bar"><div style="width:${app.earnedThisWeek/WEEKLY_EARN_CAP*100}%"></div></div>`;
+  s.appendChild(head);
+
+  const inv=el("div","card"); inv.appendChild(el("h2","title","Your Inventory"));
+  Object.entries(POWERUPS).forEach(([k,cfg])=>{
+    const capped=app.earnedThisWeek>=WEEKLY_EARN_CAP;
+    const item=el("div","store-item"); item.style.padding="10px 0"; item.style.borderTop="1px solid var(--line)";
+    item.innerHTML=`<div class="ic">${cfg.icon}</div>
+      <div><div style="font-weight:700;font-size:14px">${cfg.name}
+        ${cfg.rarity==="rare"?'<span class="rare-tag">RARE</span>':''}
+        <span class="muted" style="font-weight:400"> · owned ${app.inv[k]||0}</span></div>
+        <div class="muted" style="font-size:11px">${cfg.desc}</div></div>`;
+    const btn=el("button","btn sm","📺 Watch ad"); if(capped){btn.disabled=true;}
+    btn.onclick=()=>watchAd(k);
+    item.appendChild(btn); inv.appendChild(item);
+  });
+  s.appendChild(inv);
+
+  const pass=el("div","card");
+  pass.innerHTML=`<div class="row"><div><b style="color:var(--gold)">⭐ Season Pass</b>
+    <div class="muted" style="font-size:12px;margin-top:4px">No ads · auto-claim a power-up bundle every week · exclusive skins</div></div></div>`;
+  const upg=el("button","btn"); upg.style.marginTop="12px"; upg.style.width="100%"; upg.textContent="Upgrade — $14.99 / season";
+  upg.onclick=()=>toast("Season Pass — coming soon 💰");
+  pass.appendChild(upg);
+  s.appendChild(pass);
+}
+
+// ============================ BOOT ============================
 render();
-setInterval(tick, TICK_MS);
+setInterval(tick, TICK);
 </script>
 </body>
 </html>
