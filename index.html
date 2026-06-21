@@ -197,11 +197,20 @@ const SCHEDULE = [
 
 // ============================ STATE ============================
 const QSEC = 15*60, TICK=250, BASE_SPD=20;
+const PITY_THRESHOLD = 8; // silent: guarantee a rare after this many rare-less pulls
 let app = {
   loggedIn:false, tab:"matchup", leagueTab:"scoreboard",
   inv:{ double:1, freeze:0, surge:0, shield:0, steal:0, floor:0 },
-  earnedThisWeek:0,
+  earnedThisWeek:0, pityCount:0,
   sim:null, armed:null,
+  settings:{
+    scoring:{ passYdsPerPt:25, passTD:4, passInt:-2, rushYdsPerPt:10, rushTD:6,
+              ppr:0.5, recYdsPerPt:10, recTD:6, fumLost:-2, twoPt:2 },
+    league:{ teams:10, rosterSize:16, divisions:2, waiver:"FAAB", faab:100,
+             tradeDeadline:"Week 11", tradeReview:"Commissioner", regSeasonWeeks:14,
+             playoffTeams:6, playoffWeeks:"15-17", keepers:false },
+    powerups:{ enabled:true, weeklyCap:4, rareOdds:25, rankedMode:false },
+  },
 };
 function freshSim(){
   myStarters.forEach(reset); oppStarters.forEach(reset);
@@ -286,10 +295,22 @@ function usePU(k,p){
 // ============================ AD / EARN ============================
 // Weighted loot pool: commons are 3× as likely as rares.
 function rarityWeight(cfg){ return cfg.rarity==="rare" ? 1 : 3; }
+function pickByRarity(rarity){
+  const ks=Object.keys(POWERUPS).filter(k=>POWERUPS[k].rarity===rarity);
+  return ks[Math.floor(Math.random()*ks.length)];
+}
 function rollPowerup(){
-  const pool=[];
-  Object.entries(POWERUPS).forEach(([k,cfg])=>{ for(let i=0;i<rarityWeight(cfg);i++) pool.push(k); });
-  return pool[Math.floor(Math.random()*pool.length)];
+  let k;
+  // Silent pity timer — players never see this; it just prevents brutal cold streaks.
+  if(app.pityCount>=PITY_THRESHOLD){
+    k=pickByRarity("rare");
+  } else {
+    const pool=[];
+    Object.entries(POWERUPS).forEach(([key,cfg])=>{ for(let i=0;i<rarityWeight(cfg);i++) pool.push(key); });
+    k=pool[Math.floor(Math.random()*pool.length)];
+  }
+  app.pityCount = POWERUPS[k].rarity==="rare" ? 0 : app.pityCount+1;
+  return k;
 }
 function watchAdForMystery(){
   if(app.earnedThisWeek>=WEEKLY_EARN_CAP){ toast("Weekly earn limit reached"); return; }
@@ -321,8 +342,13 @@ function render(){
   if(!app.loggedIn){ renderLogin(); return; }
   $("app").innerHTML="";
   const top=el("header","topbar");
-  top.innerHTML=`<div class="brand">🏈 Gridiron Gambit</div><div class="pill">Week 11 · 7-3</div>`;
+  top.innerHTML=`<div class="brand">🏈 Gridiron Gambit</div>
+    <div style="display:flex;align-items:center;gap:9px">
+      <button id="commishBtn" class="pill" style="background:none;cursor:pointer;${app.tab==='commish'?'color:#1a1300;background:var(--gold);border-color:var(--gold)':'color:var(--gold)'}">⚙️ Commish</button>
+      <span class="pill">Week 11 · 7-3</span>
+    </div>`;
   $("app").appendChild(top);
+  top.querySelector("#commishBtn").onclick=()=>{ app.tab="commish"; app.armed=null; render(); };
   const scr=el("div"); scr.id="screen"; scr.className="screen"; $("app").appendChild(scr);
   renderTab();
   renderNav();
@@ -346,6 +372,7 @@ function renderTab(){
   else if(app.tab==="players") renderPlayers();
   else if(app.tab==="league") renderLeague();
   else if(app.tab==="store") renderStore();
+  else if(app.tab==="commish") renderCommish();
 }
 
 // ============================ LOGIN ============================
@@ -557,6 +584,116 @@ function renderStore(){
   upg.onclick=()=>toast("Season Pass — coming soon 💰");
   pass.appendChild(upg);
   s.appendChild(pass);
+}
+
+// ============================ COMMISSIONER ============================
+function cRow(label, hint, control){
+  const r=el("div","row"); r.style.padding="11px 0"; r.style.borderTop="1px solid var(--line)";
+  const left=el("div");
+  left.innerHTML=`<div style="font-size:14px">${label}</div>${hint?`<div class="muted" style="font-size:11px">${hint}</div>`:""}`;
+  r.append(left, control); return r;
+}
+function cNum(val, step, onchange){
+  const i=el("input","input"); i.type="number"; i.value=val; i.step=step||"1";
+  i.style.width="84px"; i.style.margin="0"; i.style.textAlign="right";
+  i.oninput=()=>onchange(parseFloat(i.value)); return i;
+}
+function cSeg(options, current, onpick){
+  const w=el("div"); w.style.display="flex"; w.style.gap="6px";
+  options.forEach(([v,lab])=>{ const b=el("button","btn sm"); b.textContent=lab;
+    if(current!==v){ b.classList.add("sec"); }
+    b.onclick=()=>onpick(v); w.appendChild(b); });
+  return w;
+}
+function cSel(options, current, onpick){
+  const sel=el("select","input"); sel.style.width="auto"; sel.style.margin="0"; sel.style.fontSize="13px";
+  options.forEach(o=>{ const op=el("option"); op.value=o; op.textContent=o; if(o===current)op.selected=true; sel.appendChild(op); });
+  sel.onchange=()=>onpick(sel.value); return sel;
+}
+function cToggle(current, onpick){
+  const b=el("button","btn sm"+(current?"":" sec")); b.textContent=current?"On":"Off";
+  b.onclick=()=>onpick(!current); return b;
+}
+function renderCommish(){
+  const s=$("screen"); if(!s) return; s.innerHTML="";
+  const sc=app.settings.scoring, lg=app.settings.league, pu=app.settings.powerups;
+
+  s.appendChild(el("div","card",`<h2 class="title">⚙️ Commissioner — League Settings</h2>
+    <div class="muted" style="font-size:12px">Only the commissioner sees this. Changes apply to the whole league.</div>`));
+
+  // Scoring presets
+  const presets=el("div","card");
+  presets.appendChild(el("h2","title","Scoring Preset"));
+  const pr=el("div"); pr.style.display="flex"; pr.style.gap="8px"; pr.style.flexWrap="wrap";
+  [["Standard",0],["Half PPR",0.5],["Full PPR",1]].forEach(([lab,val])=>{
+    const b=el("button","btn sm"+(sc.ppr===val?"":" sec")); b.textContent=lab;
+    b.onclick=()=>{ sc.ppr=val; renderCommish(); }; pr.appendChild(b);
+  });
+  presets.appendChild(pr);
+  presets.appendChild(el("div","muted","<div style='font-size:11px;margin-top:8px'>Presets just set reception points — fine-tune everything below.</div>"));
+  s.appendChild(presets);
+
+  // Scoring detail
+  const scoring=el("div","card"); scoring.appendChild(el("h2","title","Scoring Rules"));
+  scoring.append(
+    cRow("Passing yards","1 point per N yards", cNum(sc.passYdsPerPt,1,v=>sc.passYdsPerPt=v)),
+    cRow("Passing TD","points", cNum(sc.passTD,1,v=>sc.passTD=v)),
+    cRow("Interception","points", cNum(sc.passInt,1,v=>sc.passInt=v)),
+    cRow("Rushing yards","1 point per N yards", cNum(sc.rushYdsPerPt,1,v=>sc.rushYdsPerPt=v)),
+    cRow("Rushing TD","points", cNum(sc.rushTD,1,v=>sc.rushTD=v)),
+    cRow("Reception (PPR)","points per catch", cSeg([[0,"0"],[0.5,"0.5"],[1,"1"]], sc.ppr, v=>{sc.ppr=v;renderCommish();})),
+    cRow("Receiving yards","1 point per N yards", cNum(sc.recYdsPerPt,1,v=>sc.recYdsPerPt=v)),
+    cRow("Receiving TD","points", cNum(sc.recTD,1,v=>sc.recTD=v)),
+    cRow("Fumble lost","points", cNum(sc.fumLost,1,v=>sc.fumLost=v)),
+    cRow("2-point conversion","points", cNum(sc.twoPt,1,v=>sc.twoPt=v)),
+  );
+  s.appendChild(scoring);
+
+  // League setup
+  const setup=el("div","card"); setup.appendChild(el("h2","title","League Setup"));
+  setup.append(
+    cRow("Number of teams","8–16", cNum(lg.teams,1,v=>lg.teams=v)),
+    cRow("Roster size","spots per team", cNum(lg.rosterSize,1,v=>lg.rosterSize=v)),
+    cRow("Divisions","0 for none", cNum(lg.divisions,1,v=>lg.divisions=v)),
+  );
+  s.appendChild(setup);
+
+  // Acquisitions & trades
+  const acq=el("div","card"); acq.appendChild(el("h2","title","Acquisitions & Trades"));
+  acq.append(
+    cRow("Waiver type","", cSel(["FAAB","Rolling priority","Reverse standings"], lg.waiver, v=>{lg.waiver=v;renderCommish();})),
+  );
+  if(lg.waiver==="FAAB") acq.append(cRow("FAAB budget","$ per team / season", cNum(lg.faab,1,v=>lg.faab=v)));
+  acq.append(
+    cRow("Trade deadline","", cSel(["Week 9","Week 10","Week 11","Week 12","No deadline"], lg.tradeDeadline, v=>{lg.tradeDeadline=v;renderCommish();})),
+    cRow("Trade review","who approves", cSel(["Commissioner","League vote","No review"], lg.tradeReview, v=>{lg.tradeReview=v;renderCommish();})),
+  );
+  s.appendChild(acq);
+
+  // Schedule & playoffs
+  const sch=el("div","card"); sch.appendChild(el("h2","title","Schedule & Playoffs"));
+  sch.append(
+    cRow("Regular season weeks","", cNum(lg.regSeasonWeeks,1,v=>lg.regSeasonWeeks=v)),
+    cRow("Playoff teams","", cNum(lg.playoffTeams,1,v=>lg.playoffTeams=v)),
+    cRow("Playoff weeks","", cSel(["14-16","15-17","16-18"], lg.playoffWeeks, v=>{lg.playoffWeeks=v;renderCommish();})),
+    cRow("Keeper / dynasty","carry players year to year", cToggle(lg.keepers, v=>{lg.keepers=v;renderCommish();})),
+  );
+  s.appendChild(sch);
+
+  // Power-up rules (our unique layer)
+  const pwr=el("div","card"); pwr.appendChild(el("h2","title","⚡ Power-Up Rules"));
+  pwr.append(
+    cRow("Power-ups enabled","turn the whole feature on/off", cToggle(pu.enabled, v=>{pu.enabled=v;renderCommish();})),
+    cRow("Weekly earn cap","ad-earned per manager", cNum(pu.weeklyCap,1,v=>pu.weeklyCap=v)),
+    cRow("Rare drop odds %","chance of a rare per pull", cNum(pu.rareOdds,1,v=>pu.rareOdds=v)),
+    cRow("Ranked mode","everyone gets the SAME fixed set — no ads, pure skill", cToggle(pu.rankedMode, v=>{pu.rankedMode=v;renderCommish();})),
+  );
+  if(pu.rankedMode) pwr.appendChild(el("div","muted","<div style='font-size:11px;margin-top:8px;color:var(--gold)'>Ranked mode on: ad-earning is disabled and every manager gets an identical power-up loadout each week.</div>"));
+  s.appendChild(pwr);
+
+  const save=el("button","btn"); save.style.width="100%"; save.style.marginBottom="20px"; save.textContent="Save League Settings";
+  save.onclick=()=>toast("League settings saved ✓");
+  s.appendChild(save);
 }
 
 // ============================ BOOT ============================
