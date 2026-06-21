@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Gridiron Gambit — Power-Up Fantasy</title>
+<title>Couch Coach Fantasy — Power-Up Fantasy Football</title>
 <style>
   :root {
     --bg:#0b1020; --panel:#141b33; --panel2:#1b2444; --line:#2a3566;
@@ -199,7 +199,8 @@ const SCHEDULE = [
 const QSEC = 15*60, TICK=250, BASE_SPD=20;
 const PITY_THRESHOLD = 8; // silent: guarantee a rare after this many rare-less pulls
 let app = {
-  loggedIn:false, tab:"matchup", leagueTab:"scoreboard",
+  loggedIn:false, connectedLeague:null, foundLeagues:null,
+  tab:"matchup", leagueTab:"scoreboard",
   inv:{ double:1, freeze:0, surge:0, shield:0, steal:0, floor:0 },
   earnedThisWeek:0, pityCount:0,
   sim:null, armed:null,
@@ -227,6 +228,14 @@ function clk(){ const q=Math.min(3,Math.floor(app.sim.gameSec/QSEC)); const into
   return { q:q+1, rem:Math.max(0,QSEC-into) }; }
 function feed(t,c){ const {q,rem}=clk(); app.sim.feed.unshift({t:`Q${q} ${fmt(rem)}`,txt:t,c}); app.sim.feed=app.sim.feed.slice(0,40); }
 function toast(msg){ const t=el("div","toast",msg); document.body.appendChild(t); setTimeout(()=>t.remove(),1800); }
+// Overlay model: write actions deep-link into Sleeper (real app would target the exact league screen).
+const SLEEPER_URL="https://sleeper.com";
+function sleeperBtn(label){
+  const b=el("button","btn"); b.style.width="100%"; b.style.marginTop="12px";
+  b.innerHTML=label+' <span style="opacity:.65">↗</span>';
+  b.onclick=()=>window.open(SLEEPER_URL,"_blank");
+  return b;
+}
 
 // ============================ SIM LOOP ============================
 function tick(){
@@ -340,9 +349,10 @@ function revealMystery(){
 // ============================ RENDER: SHELL ============================
 function render(){
   if(!app.loggedIn){ renderLogin(); return; }
+  if(!app.connectedLeague){ renderConnect(); return; }
   $("app").innerHTML="";
   const top=el("header","topbar");
-  top.innerHTML=`<div class="brand">🏈 Gridiron Gambit</div>
+  top.innerHTML=`<div class="brand">🛋️ Couch Coach</div>
     <div style="display:flex;align-items:center;gap:9px">
       <button id="commishBtn" class="pill" style="background:none;cursor:pointer;${app.tab==='commish'?'color:#1a1300;background:var(--gold);border-color:var(--gold)':'color:var(--gold)'}">⚙️ Commish</button>
       <span class="pill">Week 11 · 7-3</span>
@@ -380,15 +390,54 @@ function renderLogin(){
   const a=$("app"); a.innerHTML="";
   const w=el("div","login");
   w.innerHTML=`
-    <div class="logo">🏈</div>
-    <h1>Gridiron Gambit</h1>
-    <p class="sub">Fantasy football — with power-ups.</p>
-    <input class="input" id="u" placeholder="Username" value="commish_greg"/>
+    <div class="logo">🛋️</div>
+    <h1>Couch Coach Fantasy</h1>
+    <p class="sub">Your fantasy league — with power-ups.</p>
+    <input class="input" id="u" placeholder="Email" value="greg@couchcoach.app"/>
     <input class="input" id="pw" type="password" placeholder="Password" value="password"/>
     <button class="btn" id="loginBtn">Log In</button>
-    <div class="small">No account? <b style="color:var(--gold)">Sign up free</b> · or Connect Sleeper league</div>`;
+    <div class="small">New here? <b style="color:var(--gold)">Sign up free</b></div>`;
   a.appendChild(w);
-  $("loginBtn").onclick=()=>{ app.loggedIn=true; app.sim=freshSim(); render(); };
+  $("loginBtn").onclick=()=>{ app.loggedIn=true; render(); };
+}
+
+// ============================ CONNECT SLEEPER ============================
+function renderConnect(){
+  const a=$("app"); a.innerHTML="";
+  const w=el("div","login");
+  let list="";
+  if(app.foundLeagues){
+    list=`<div class="small" style="margin-top:20px;text-align:left">Pick a league to manage:</div>` +
+      app.foundLeagues.map((l,i)=>`<button class="card connectLeague" data-i="${i}"
+        style="width:100%;text-align:left;cursor:pointer;margin-top:10px">
+        <div style="font-weight:700">${l.name}</div>
+        <div class="muted" style="font-size:12px">${l.teams} teams · ${l.season} · ${l.scoring}</div></button>`).join("");
+  }
+  w.innerHTML=`
+    <div class="logo">🔗</div>
+    <h1>Connect Sleeper</h1>
+    <p class="sub">Couch Coach reads your league straight from Sleeper — your draft, lineups, scoring, and rosters all sync automatically. The power-ups live here.</p>
+    <input class="input" id="su" placeholder="Sleeper username" value="couchcoach_greg"/>
+    <button class="btn" id="findBtn">${app.foundLeagues?"Search again":"Find My Leagues"}</button>
+    ${list}
+    <div class="small">🔒 Read-only & secure — we never change your Sleeper team.</div>`;
+  a.appendChild(w);
+  $("findBtn").onclick=()=>{
+    const ov=$("overlay");
+    ov.innerHTML=`<div class="modal"><div class="box"><div style="font-size:34px">🔄</div>
+      <div style="margin-top:10px;font-weight:700">Searching Sleeper…</div>
+      <div class="muted" style="font-size:12px;margin-top:6px">Reading your leagues</div></div></div>`;
+    setTimeout(()=>{ ov.innerHTML="";
+      app.foundLeagues=[
+        {name:"The Couch League", teams:10, season:"2026", scoring:"Half PPR"},
+        {name:"Sunday Scaries", teams:12, season:"2026", scoring:"Full PPR"},
+      ];
+      renderConnect();
+    }, 1300);
+  };
+  a.querySelectorAll(".connectLeague").forEach(b=> b.onclick=()=>{
+    app.connectedLeague=app.foundLeagues[+b.dataset.i].name; app.sim=freshSim(); render();
+  });
 }
 
 // ============================ MATCHUP ============================
@@ -462,45 +511,40 @@ function lineupCard(title, arr, side){
   return c;
 }
 
-// ============================ MY TEAM ============================
+// ============================ MY TEAM (synced from Sleeper) ============================
+function roRow(p){
+  return el("div","plr",`<div class="pos">${p.pos}</div>
+    <div><div class="nm">${p.name}</div><div class="meta2">${p.opp} · proj ${p.proj}</div></div>
+    <div class="pt">${p.proj}</div>`);
+}
 function renderTeam(){
   const s=$("screen"); s.innerHTML="";
-  s.appendChild(el("div","card","<h2 class='title'>Set Your Lineup — Week 11</h2><div class='muted' style='font-size:12px'>Tap a bench player, then tap a starter of the same position to swap. Lineups lock at kickoff.</div>"));
+  const head=el("div","card");
+  head.innerHTML=`<h2 class='title'>Your Lineup — Week 11</h2>
+    <div class='muted' style='font-size:12px'>🔗 Synced from <b style="color:var(--txt)">${app.connectedLeague}</b> on Sleeper. Edit your lineup in Sleeper and it updates here automatically — lineups lock at kickoff.</div>`;
+  head.appendChild(sleeperBtn("✏️ Set Lineup in Sleeper"));
+  s.appendChild(head);
   const start=el("div","card"); start.appendChild(el("h2","title","Starters"));
-  myStarters.forEach(p=> start.appendChild(rosterRow(p,true)));
-  s.appendChild(start);
+  myStarters.forEach(p=> start.appendChild(roRow(p))); s.appendChild(start);
   const bench=el("div","card"); bench.appendChild(el("h2","title","Bench"));
-  myBench.forEach(p=> bench.appendChild(rosterRow(p,false)));
-  s.appendChild(bench);
-}
-let swapPick=null;
-function rosterRow(p,isStarter){
-  const d=el("div","plr"+(isStarter?"":" bench")+(swapPick===p?" tappable":""),
-    `<div class="pos">${p.pos}</div>
-     <div><div class="nm">${p.name}</div><div class="meta2">${p.opp} · proj ${p.proj}</div></div>
-     <div class="pt">${p.proj}</div>`);
-  d.onclick=()=>{
-    if(!isStarter){ swapPick = swapPick===p?null:p; renderTeam(); return; }
-    if(swapPick){
-      if(swapPick.pos!==p.pos){ toast(`Swap needs a ${p.pos}`); return; }
-      const bi=myBench.indexOf(swapPick), si=myStarters.indexOf(p);
-      myStarters[si]=swapPick; myBench[bi]=p; swapPick=null; toast("Lineup updated"); renderTeam();
-    }
-  };
-  return d;
+  myBench.forEach(p=> bench.appendChild(roRow(p))); s.appendChild(bench);
 }
 
-// ============================ PLAYERS ============================
+// ============================ PLAYERS (browse here, claim in Sleeper) ============================
 function renderPlayers(){
   const s=$("screen"); s.innerHTML="";
-  s.appendChild(el("div","card","<h2 class='title'>Free Agents & Waiver Wire</h2><div class='muted' style='font-size:12px'>FAAB budget: <b style='color:var(--gold)'>$74</b> remaining · Waivers process Wed 3 AM</div>"));
+  const head=el("div","card");
+  head.innerHTML=`<h2 class='title'>Free Agents & Waiver Wire</h2>
+    <div class='muted' style='font-size:12px'>FAAB budget: <b style='color:var(--gold)'>$74</b> · Browse here, claim in Sleeper. Waivers process in Sleeper, Wed 3 AM.</div>`;
+  head.appendChild(sleeperBtn("🔁 Manage Waivers in Sleeper"));
+  s.appendChild(head);
   const c=el("div","card");
   FREE_AGENTS.forEach(p=>{
     const row=el("div","plr",`<div class="pos">${p.pos}</div>
       <div><div class="nm">${p.name}</div><div class="meta2">${p.opp} · proj ${p.proj}</div></div>
       <div></div>`);
-    const add=el("button","btn sm","+ Add"); add.style.marginLeft="auto";
-    add.onclick=()=>{ toast(`Claim submitted for ${p.name}`); add.textContent="Claimed"; add.disabled=true; };
+    const add=el("button","btn sm sec","Add ↗"); add.style.marginLeft="auto";
+    add.onclick=()=>window.open(SLEEPER_URL,"_blank");
     row.lastElementChild.appendChild(add);
     c.appendChild(row);
   });
@@ -618,8 +662,11 @@ function renderCommish(){
   const s=$("screen"); if(!s) return; s.innerHTML="";
   const sc=app.settings.scoring, lg=app.settings.league, pu=app.settings.powerups;
 
-  s.appendChild(el("div","card",`<h2 class="title">⚙️ Commissioner — League Settings</h2>
-    <div class="muted" style="font-size:12px">Only the commissioner sees this. Changes apply to the whole league.</div>`));
+  const intro=el("div","card");
+  intro.innerHTML=`<h2 class="title">⚙️ Commissioner — League Settings</h2>
+    <div class="muted" style="font-size:12px">Scoring & league rules are mirrored from <b style="color:var(--txt)">${app.connectedLeague}</b> on Sleeper. The <b style="color:var(--gold)">⚡ Power-Up Rules</b> below are Couch Coach's own — set them here.</div>`;
+  intro.appendChild(sleeperBtn("Edit League Settings in Sleeper"));
+  s.appendChild(intro);
 
   // Scoring presets
   const presets=el("div","card");
