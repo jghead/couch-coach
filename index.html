@@ -39,10 +39,10 @@
     position:fixed; bottom:0; left:0; right:0; display:flex; justify-content:center;
     background:rgba(20,27,51,.97); border-top:1px solid var(--line); backdrop-filter:blur(8px); z-index:30;
   }
-  nav.tabbar .inner { display:flex; max-width:520px; width:100%; }
+  nav.tabbar .inner { display:flex; max-width:520px; width:100%; overflow-x:auto; }
   nav.tabbar button {
-    flex:1; background:none; border:none; color:var(--muted); padding:10px 4px 8px;
-    font-size:10px; display:flex; flex-direction:column; align-items:center; gap:3px;
+    flex:1; background:none; border:none; color:var(--muted); padding:10px 2px 8px;
+    font-size:9px; white-space:nowrap; display:flex; flex-direction:column; align-items:center; gap:3px;
   }
   nav.tabbar button .i { font-size:19px; }
   nav.tabbar button.active { color:var(--gold); }
@@ -205,13 +205,20 @@ const CHAT_SEED=[
   {who:"Burrow Bandits", text:"freeze my Mahomes and it's over between us", time:"9:31a"},
   {who:"Kelce's Angels", text:"who dropped Dobbins?? grabbing him", time:"10:04a"},
 ];
+const ACTIVITY=[
+  {ic:"🏥", txt:"<b>P. Nacua</b> listed Questionable (hamstring)", time:"22 min ago"},
+  {ic:"🔁", txt:"<b>Kelce's Angels</b> claimed J. Dobbins off waivers", time:"1 hr ago"},
+  {ic:"🤝", txt:"Trade: <b>CMC Hammer</b> ↔ <b>The Tankers</b> pending review", time:"3 hr ago"},
+  {ic:"🧊", txt:"<b>Burrow Bandits</b> used a Freeze on you last week", time:"Mon"},
+  {ic:"🏈", txt:"Week 11 lineups lock Sunday 1:00 PM ET", time:"reminder"},
+];
 
 // ============================ STATE ============================
 const QSEC = 15*60, TICK=250, BASE_SPD=20;
 const PITY_THRESHOLD = 8; // silent: guarantee a rare after this many rare-less pulls
 let app = {
   loggedIn:false, connectedLeague:null, foundLeagues:null,
-  tab:"matchup", leagueTab:"scoreboard",
+  tab:"home", leagueTab:"scoreboard",
   inv:{ double:1, freeze:0, surge:0, shield:0, steal:0, floor:0 },
   earnedThisWeek:0, pityCount:0, realData:false, chat:CHAT_SEED.slice(),
   sim:null, armed:null,
@@ -226,7 +233,7 @@ let app = {
 };
 function freshSim(){
   myStarters.forEach(reset); oppStarters.forEach(reset);
-  return { running:false, speed:1, gameSec:0, cd:{}, feed:[] };
+  return { running:false, speed:1, gameSec:0, cd:{}, feed:[], puLog:[], opNext:75 };
 }
 function reset(p){ Object.assign(p,{pts:0,frozen:0,boosted:0,mult:1,hailmary:false,shielded:0,robbed:0,floored:0,pendingScore:undefined}); }
 
@@ -238,6 +245,23 @@ function total(arr){ return Math.round(arr.reduce((a,p)=>a+p.pts,0)*10)/10; }
 function clk(){ const q=Math.min(3,Math.floor(app.sim.gameSec/QSEC)); const into=app.sim.gameSec-q*QSEC;
   return { q:q+1, rem:Math.max(0,QSEC-into) }; }
 function feed(t,c){ const {q,rem}=clk(); app.sim.feed.unshift({t:`Q${q} ${fmt(rem)}`,txt:t,c}); app.sim.feed=app.sim.feed.slice(0,40); }
+function clkLabel(){ const {q,rem}=clk(); return `Q${q} ${fmt(rem)}`; }
+function logPU(side,key,target,blocked){ app.sim.puLog.push({side,key,target,t:clkLabel(),blocked:!!blocked}); }
+function ord(n){ return n===1?"st":n===2?"nd":n===3?"rd":"th"; }
+// Light opponent AI — fires a power-up at you every so often so the head-to-head feels alive.
+function maybeOpponentAI(adv){
+  app.sim.opNext -= adv;
+  if(app.sim.opNext>0) return;
+  app.sim.opNext = 130 + Math.random()*110;
+  if(Math.random()<0.5){
+    const tgt = myStarters.reduce((a,b)=> b.pts>=a.pts?b:a);
+    if(tgt.shielded>0){ feed(`🛡️ Your Bodyguard blocked Burrow Bandits' Freeze on ${tgt.name}!`,"ev-pu"); logPU("op","freeze",tgt.name,true); return; }
+    tgt.frozen=60; feed(`🧊 Burrow Bandits FROZE your ${tgt.name}!`,"ev-pu"); logPU("op","freeze",tgt.name);
+  } else {
+    const tgt = oppStarters.reduce((a,b)=> b.pts>=a.pts?b:a);
+    tgt.boosted=120; tgt.mult=2; feed(`⚡ Burrow Bandits boosted their ${tgt.name}!`,"ev-pu"); logPU("op","double",tgt.name);
+  }
+}
 function toast(msg){ const t=el("div","toast",msg); document.body.appendChild(t); setTimeout(()=>t.remove(),1800); }
 // Overlay model: write actions deep-link into Sleeper (real app would target the exact league screen).
 const SLEEPER_URL="https://sleeper.com";
@@ -294,6 +318,8 @@ function tick(){
   });
   Object.keys(app.sim.cd).forEach(k=>{ if(app.sim.cd[k]>0) app.sim.cd[k]=Math.max(0,app.sim.cd[k]-adv); });
 
+  maybeOpponentAI(adv);
+
   [...myStarters,...oppStarters].forEach(p=>{
     if(p.frozen>0) return;
     const c=POS_CFG[p.pos]; const chance = p.floored>0?1:c.rate*(adv/30);
@@ -326,9 +352,9 @@ function usePU(k,p){
   if(side!==cfg.target){ toast(cfg.target==="me"?"Target YOUR player":"Target the OPPONENT"); return; }
   if((k==="freeze"||k==="steal") && p.shielded>0){
     app.inv[k]--; app.sim.cd[k]=cfg.cd; app.armed=null;
-    feed(`🛡️ ${p.name}'s Bodyguard blocked your ${cfg.name}!`,"ev-pu"); renderMatchup(); return;
+    feed(`🛡️ ${p.name}'s Bodyguard blocked your ${cfg.name}!`,"ev-pu"); logPU("me",k,p.name,true); renderMatchup(); return;
   }
-  app.inv[k]--; app.sim.cd[k]=cfg.cd; app.armed=null;
+  app.inv[k]--; app.sim.cd[k]=cfg.cd; app.armed=null; logPU("me",k,p.name);
   if(k==="freeze"){ p.frozen=cfg.dur; feed(`🧊 FROZE ${p.name} for 1:00!`,"ev-pu"); }
   else if(k==="double"){ p.boosted=cfg.dur; p.mult=2; feed(`⚡ Double Points on ${p.name}!`,"ev-pu"); }
   else if(k==="surge"){ p.boosted=cfg.dur; p.mult=3; p.hailmary=true; p.pendingScore=false; feed(`🚀 Hail Mary on ${p.name}!`,"ev-pu"); }
@@ -391,17 +417,18 @@ function render(){
   const top=el("header","topbar");
   top.innerHTML=`<div class="brand">🛋️ Couch Coach</div>
     <div style="display:flex;align-items:center;gap:9px">
+      <button id="bellBtn" class="pill" style="background:none;cursor:pointer;color:var(--gold)">🔔</button>
       <button id="commishBtn" class="pill" style="background:none;cursor:pointer;${app.tab==='commish'?'color:#1a1300;background:var(--gold);border-color:var(--gold)':'color:var(--gold)'}">⚙️ Commish</button>
-      <span class="pill">Week 11 · 7-3</span>
     </div>`;
   $("app").appendChild(top);
   top.querySelector("#commishBtn").onclick=()=>{ app.tab="commish"; app.armed=null; render(); };
+  top.querySelector("#bellBtn").onclick=()=>{ app.tab="home"; app.armed=null; render(); };
   const scr=el("div"); scr.id="screen"; scr.className="screen"; $("app").appendChild(scr);
   renderTab();
   renderNav();
 }
 function renderNav(){
-  const tabs=[["matchup","Matchup","🥊"],["team","My Team","📋"],["players","Players","🔁"],
+  const tabs=[["home","Home","🏟️"],["matchup","Matchup","🥊"],["team","My Team","📋"],["players","Players","🔁"],
               ["league","League","🏆"],["store","Power-Ups","⚡"]];
   let nav=$("nav"); if(nav) nav.remove();
   nav=el("nav","tabbar"); nav.id="nav";
@@ -414,7 +441,8 @@ function renderNav(){
   nav.appendChild(inner); document.body.appendChild(nav);
 }
 function renderTab(){
-  if(app.tab==="matchup") renderMatchup();
+  if(app.tab==="home") renderHome();
+  else if(app.tab==="matchup") renderMatchup();
   else if(app.tab==="team") renderTeam();
   else if(app.tab==="players") renderPlayers();
   else if(app.tab==="league") renderLeague();
@@ -480,6 +508,66 @@ function renderConnect(){
   });
 }
 
+// ============================ HOME DASHBOARD ============================
+function renderHome(){
+  const s=$("screen"); if(!s) return; s.innerHTML="";
+  const ms=total(myStarters), os=total(oppStarters);
+  const done=app.sim.gameSec>=4*QSEC;
+
+  const hero=el("div","card");
+  hero.innerHTML=`<h2 class="title">Week 11 · Your Matchup</h2>
+    <div class="scoreboard">
+      <div class="ts me"><div class="nm">You</div><div class="pts">${ms.toFixed(1)}</div></div>
+      <div class="clock"><div class="q">${app.sim.running?"LIVE":done?"FINAL":"PREGAME"}</div><div class="tt" style="font-size:16px">vs</div></div>
+      <div class="ts op"><div class="nm">Burrow Bandits</div><div class="pts">${os.toFixed(1)}</div></div>
+    </div>`;
+  const go=el("button","btn"); go.style.width="100%"; go.style.marginTop="10px";
+  go.textContent = app.sim.running?"▶ Back to Live Matchup":done?"View Final & Recap":"▶ Open Matchup";
+  go.onclick=()=>{ app.tab="matchup"; render(); };
+  hero.appendChild(go); s.appendChild(hero);
+
+  const invCount=Object.values(app.inv).reduce((a,b)=>a+b,0);
+  const puc=el("div","card");
+  puc.innerHTML=`<div class="row"><div><b>⚡ Power-Ups Ready</b>
+    <div class="muted" style="font-size:12px">${invCount} in your bag · ${app.earnedThisWeek}/${WEEKLY_EARN_CAP} earned this week</div></div>
+    <div style="font-size:24px;font-weight:800;color:var(--gold)">${invCount}</div></div>`;
+  const earn=el("button","btn sec"); earn.style.width="100%"; earn.style.marginTop="10px"; earn.textContent="🎁 Earn a Mystery Power-Up";
+  earn.onclick=()=>{ app.tab="store"; render(); };
+  puc.appendChild(earn); s.appendChild(puc);
+
+  const sorted=LEAGUE.slice().sort((a,b)=>b.w-a.w||b.pf-a.pf);
+  const rank=sorted.findIndex(t=>t.me)+1;
+  const stc=el("div","card");
+  stc.innerHTML=`<div class="row"><div><b>🏆 League Standing</b>
+    <div class="muted" style="font-size:12px">${rank}${ord(rank)} of ${LEAGUE.length} · 7-3</div></div></div>`;
+  const stb=el("button","btn sec"); stb.style.width="100%"; stb.style.marginTop="10px"; stb.textContent="View Standings";
+  stb.onclick=()=>{ app.tab="league"; app.leagueTab="standings"; render(); };
+  stc.appendChild(stb); s.appendChild(stc);
+
+  const act=el("div","card"); act.appendChild(el("h2","title","🔔 League Activity"));
+  ACTIVITY.forEach(a=> act.appendChild(el("div","",
+    `<div style="padding:9px 0;border-top:1px solid var(--line);font-size:13px">
+      <span style="margin-right:7px">${a.ic}</span>${a.txt}
+      <div class="muted" style="font-size:11px;margin-top:2px">${a.time}</div></div>`)));
+  s.appendChild(act);
+}
+function recapCard(){
+  const c=el("div","card"); c.appendChild(el("h2","title","📜 Power-Up Recap"));
+  const ms=total(myStarters), os=total(oppStarters);
+  c.appendChild(el("div","",`<div style="font-weight:800;font-size:15px;margin-bottom:4px">
+    ${ms>os?'🏆 You won '+ms.toFixed(1)+'–'+os.toFixed(1):ms<os?'💀 Lost '+ms.toFixed(1)+'–'+os.toFixed(1):'🤝 Tie '+ms.toFixed(1)}</div>`));
+  if(!app.sim.puLog.length){ c.appendChild(el("div","muted","<div style='font-size:13px'>No power-ups used this game.</div>")); return c; }
+  app.sim.puLog.forEach(e=>{
+    const cfg=POWERUPS[e.key]; const who=e.side==="me"?"You":"Burrow Bandits";
+    c.appendChild(el("div","",`<div style="padding:7px 0;border-top:1px solid var(--line);font-size:13px">
+      <span style="margin-right:6px">${cfg.icon}</span>
+      <b style="color:${e.side==='me'?'var(--you)':'var(--opp)'}">${who}</b>
+      ${e.blocked?'tried '+cfg.name+' (blocked 🛡️)':'used <b>'+cfg.name+'</b>'} on ${e.target}
+      <span class="muted">· ${e.t}</span></div>`));
+  });
+  return c;
+}
+
 // ============================ MATCHUP ============================
 function renderMatchup(){
   const s=$("screen"); if(!s) return; s.innerHTML="";
@@ -503,6 +591,8 @@ function renderMatchup(){
   const rs=el("button","btn sec","↺ Reset");
   rs.onclick=()=>{ app.sim=freshSim(); app.armed=null; renderMatchup(); };
   ctl.append(start,spd,rs); s.appendChild(ctl);
+
+  if(done && app.sim.puLog.length) s.appendChild(recapCard());
 
   const trayCard=el("div","card");
   trayCard.appendChild(el("h2","title","Your Power-Ups — tap to arm, then tap a player"));
