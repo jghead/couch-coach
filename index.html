@@ -221,6 +221,7 @@ let app = {
   tab:"home", leagueTab:"scoreboard",
   inv:{ double:1, freeze:0, surge:0, shield:0, steal:0, floor:0 },
   earnedThisWeek:0, pityCount:0, realData:false, chat:CHAT_SEED.slice(),
+  leagueId:null, leagueData:null, sleeperUserId:null,
   sim:null, armed:null, matchupIdx:0,
   settings:{
     scoring:{ passYdsPerPt:25, passTD:4, passInt:-2, rushYdsPerPt:10, rushTD:6,
@@ -266,12 +267,15 @@ function maybeOpponentAI(adv){
 function toast(msg){ const t=el("div","toast",msg); document.body.appendChild(t); setTimeout(()=>t.remove(),1800); }
 // Overlay model: write actions deep-link into Sleeper (real app would target the exact league screen).
 const SLEEPER_URL="https://sleeper.com";
+function sleeperLeagueUrl(){ return app.leagueId ? `https://sleeper.app/leagues/${app.leagueId}` : SLEEPER_URL; }
 function sleeperBtn(label){
   const b=el("button","btn"); b.style.width="100%"; b.style.marginTop="12px";
   b.innerHTML=label+' <span style="opacity:.65">↗</span>';
-  b.onclick=()=>window.open(SLEEPER_URL,"_blank");
+  b.onclick=()=>window.open(sleeperLeagueUrl(),"_blank");
   return b;
 }
+function showSpin(t){ $("overlay").innerHTML=`<div class="modal"><div class="box"><div style="font-size:34px">🔄</div><div style="margin-top:10px;font-weight:700">${t}</div></div></div>`; }
+function clearOverlay(){ $("overlay").innerHTML=""; }
 // --- REAL Sleeper API (read-only, no auth) ---
 const DEMO_LEAGUES=[
   {name:"The Couch League", teams:10, season:"2026", scoring:"Half PPR"},
@@ -285,12 +289,33 @@ async function findRealLeagues(username){
   const r=await fetch(`https://api.sleeper.app/v1/user/${encodeURIComponent(username)}`);
   if(!r.ok) return null;
   const u=await r.json(); if(!u||!u.user_id) return null;
+  app.sleeperUserId = u.user_id;
   for(const season of ["2025","2024","2026"]){
     const lr=await fetch(`https://api.sleeper.app/v1/user/${u.user_id}/leagues/nfl/${season}`);
     if(lr.ok){ const ls=await lr.json();
-      if(ls&&ls.length) return ls.map(l=>({name:l.name, teams:l.total_rosters, season:l.season, scoring:scoringLabel(l)})); }
+      if(ls&&ls.length) return ls.map(l=>({name:l.name, id:l.league_id, teams:l.total_rosters, season:l.season, scoring:scoringLabel(l)})); }
   }
   return [];
+}
+// Pull real standings (teams, records, points) for the selected league.
+async function fetchLeagueData(id){
+  const [users,rosters]=await Promise.all([
+    fetch(`https://api.sleeper.app/v1/league/${id}/users`).then(r=>r.json()),
+    fetch(`https://api.sleeper.app/v1/league/${id}/rosters`).then(r=>r.json()),
+  ]);
+  const byId={}; (users||[]).forEach(u=>byId[u.user_id]=u);
+  const standings=(rosters||[]).map(r=>{
+    const u=byId[r.owner_id]||{}; const s=r.settings||{};
+    const name=(u.metadata&&u.metadata.team_name)||u.display_name||("Team "+r.roster_id);
+    const pf=(s.fpts||0)+((s.fpts_decimal||0)/100);
+    return { team:name, w:s.wins||0, l:s.losses||0, pf:Math.round(pf*10)/10, me:r.owner_id===app.sleeperUserId };
+  }).sort((a,b)=> b.w-a.w || b.pf-a.pf);
+  return { standings };
+}
+function getStandings(){
+  return (app.leagueData && app.leagueData.standings)
+    ? app.leagueData.standings
+    : LEAGUE.slice().sort((a,b)=>b.w-a.w||b.pf-a.pf);
 }
 function statusTag(p){
   if(!p.status) return "";
@@ -510,8 +535,15 @@ function renderConnect(){
     else { app.foundLeagues=DEMO_LEAGUES; app.realData=false; }
     renderConnect();
   };
-  a.querySelectorAll(".connectLeague").forEach(b=> b.onclick=()=>{
-    app.connectedLeague=app.foundLeagues[+b.dataset.i].name; app.sim=freshSim(); render();
+  a.querySelectorAll(".connectLeague").forEach(b=> b.onclick=async ()=>{
+    const lg=app.foundLeagues[+b.dataset.i];
+    app.connectedLeague=lg.name; app.leagueId=lg.id||null; app.leagueData=null;
+    if(app.realData && app.leagueId){
+      showSpin("Loading your league…");
+      try { app.leagueData=await fetchLeagueData(app.leagueId); } catch(e){ app.leagueData=null; }
+      clearOverlay();
+    }
+    app.sim=freshSim(); render();
   });
 }
 
@@ -542,11 +574,12 @@ function renderHome(){
   earn.onclick=()=>{ app.tab="store"; render(); };
   puc.appendChild(earn); s.appendChild(puc);
 
-  const sorted=LEAGUE.slice().sort((a,b)=>b.w-a.w||b.pf-a.pf);
-  const rank=sorted.findIndex(t=>t.me)+1;
+  const st=getStandings(); const meRow=st.find(t=>t.me); const rank=st.findIndex(t=>t.me)+1;
+  const rec=meRow?` · ${meRow.w}-${meRow.l}`:"";
+  const rankTxt=rank>0?`${rank}${ord(rank)} of ${st.length}`:`${st.length} teams`;
   const stc=el("div","card");
   stc.innerHTML=`<div class="row"><div><b>🏆 League Standing</b>
-    <div class="muted" style="font-size:12px">${rank}${ord(rank)} of ${LEAGUE.length} · 7-3</div></div></div>`;
+    <div class="muted" style="font-size:12px">${rankTxt}${rec}${app.leagueData?' · live':''}</div></div></div>`;
   const stb=el("button","btn sec"); stb.style.width="100%"; stb.style.marginTop="10px"; stb.textContent="View Standings";
   stb.onclick=()=>{ app.tab="league"; app.leagueTab="standings"; render(); };
   stc.appendChild(stb); s.appendChild(stc);
@@ -620,6 +653,8 @@ function renderMatchup(){
     s.appendChild(jump);
     return;
   }
+
+  s.appendChild(el("div","muted","<div style='font-size:11px;margin:-2px 0 12px;text-align:center'>🎮 Demo game — power-up gameplay preview. Live NFL scoring activates during the season.</div>"));
 
   const ctl=el("div","row"); ctl.style.marginBottom="14px";
   const start=el("button","btn", app.sim.running?"⏸ Pause":(app.sim.gameSec>0?"▶ Resume":"▶ Kick Off"));
@@ -713,7 +748,7 @@ function renderPlayers(){
       <div><div class="nm">${p.name}</div><div class="meta2">${statusTag(p)}${p.opp} · proj ${p.proj}</div></div>
       <div></div>`);
     const add=el("button","btn sm sec","Add ↗"); add.style.marginLeft="auto";
-    add.onclick=()=>window.open(SLEEPER_URL,"_blank");
+    add.onclick=()=>window.open(sleeperLeagueUrl(),"_blank");
     row.lastElementChild.appendChild(add);
     c.appendChild(row);
   });
@@ -730,6 +765,7 @@ function renderLeague(){
   s.appendChild(ts);
 
   if(app.leagueTab==="scoreboard"){
+    if(app.leagueData) s.appendChild(el("div","muted","<div style='font-size:11px;margin-bottom:10px;text-align:center'>🎮 Demo scores — live weekly matchups populate here during the NFL season.</div>"));
     const me=el("div","card");
     me.innerHTML=`<h2 class="title">Your Matchup</h2>
       <div class="row"><div><b style="color:var(--you)">Your Team</b><div class="muted" style="font-size:12px">7-3</div></div>
@@ -744,11 +780,12 @@ function renderLeague(){
     });
   } else if(app.leagueTab==="standings"){
     const c=el("div","card");
+    if(app.leagueData) c.appendChild(el("div","muted","<div style='font-size:11px;margin-bottom:8px;color:var(--you)'>✓ Live from Sleeper</div>"));
     let html=`<table class="std"><tr><th>#</th><th>Team</th><th>W-L</th><th>PF</th></tr>`;
-    LEAGUE.slice().sort((a,b)=>b.w-a.w||b.pf-a.pf).forEach((t,i)=>{
+    getStandings().forEach((t,i)=>{
       html+=`<tr class="${t.me?'me':''}"><td>${i+1}</td><td>${t.team}</td><td>${t.w}-${t.l}</td><td>${t.pf}</td></tr>`;
     });
-    html+=`</table>`; c.innerHTML=html; s.appendChild(c);
+    html+=`</table>`; c.innerHTML+=html; s.appendChild(c);
   } else if(app.leagueTab==="schedule"){
     const c=el("div","card"); c.appendChild(el("h2","title","Your Schedule — 2026"));
     SCHEDULE.forEach(g=>{
