@@ -221,7 +221,7 @@ let app = {
   tab:"home", leagueTab:"scoreboard",
   inv:{ double:1, freeze:0, surge:0, shield:0, steal:0, floor:0 },
   earnedThisWeek:0, pityCount:0, realData:false, chat:CHAT_SEED.slice(),
-  sim:null, armed:null,
+  sim:null, armed:null, matchupIdx:0,
   settings:{
     scoring:{ passYdsPerPt:25, passTD:4, passInt:-2, rushYdsPerPt:10, rushTD:6,
               ppr:0.5, recYdsPerPt:10, recTD:6, fumLost:-2, twoPt:2 },
@@ -233,7 +233,8 @@ let app = {
 };
 function freshSim(){
   myStarters.forEach(reset); oppStarters.forEach(reset);
-  return { running:false, speed:1, gameSec:0, cd:{}, feed:[], puLog:[], opNext:75 };
+  return { running:false, speed:1, gameSec:0, cd:{}, feed:[], puLog:[], opNext:75,
+           others: OTHER_MATCHUPS.map(m=>({...m})) };
 }
 function reset(p){ Object.assign(p,{pts:0,frozen:0,boosted:0,mult:1,hailmary:false,shielded:0,robbed:0,floored:0,pendingScore:undefined}); }
 
@@ -333,6 +334,12 @@ function tick(){
       const m=p.mult>1?` (${p.mult}×)`:""; feed(`${p.name} +${g}${m}`,"ev-score");
       if(stolen>0) feed(`🧲 +${stolen} swiped from ${p.name}.`,"ev-pu");
     }
+  });
+
+  // other league games tick live too
+  app.sim.others.forEach(m=>{
+    if(Math.random()<0.35*(adv/5)) m.as=Math.round((m.as+Math.random()*1.3)*10)/10;
+    if(Math.random()<0.35*(adv/5)) m.bs=Math.round((m.bs+Math.random()*1.3)*10)/10;
   });
 
   if(app.sim.gameSec>=4*QSEC){ app.sim.running=false;
@@ -571,16 +578,48 @@ function recapCard(){
 // ============================ MATCHUP ============================
 function renderMatchup(){
   const s=$("screen"); if(!s) return; s.innerHTML="";
+  const others = app.sim.others||[];
+  const all = [{your:true, a:"Your Team", b:"Burrow Bandits"}, ...others.map(m=>({your:false, ...m}))];
+  if(app.matchupIdx>=all.length) app.matchupIdx=0;
+  const idx=app.matchupIdx; const m=all[idx];
+  const done=app.sim.gameSec>=4*QSEC;
+  const {q,rem}=clk();
+
+  // matchup navigation
+  const nav=el("div","row"); nav.style.marginBottom="12px";
+  const prev=el("button","btn sec","‹"); prev.style.padding="10px 16px";
+  const next=el("button","btn sec","›"); next.style.padding="10px 16px";
+  prev.onclick=()=>{ app.matchupIdx=(idx-1+all.length)%all.length; app.armed=null; renderMatchup(); };
+  next.onclick=()=>{ app.matchupIdx=(idx+1)%all.length; app.armed=null; renderMatchup(); };
+  const label=el("div","",`<div style="text-align:center">
+    <div style="font-size:13px;font-weight:700">${m.your?"🏈 Your Matchup":"🔭 Spectating"}</div>
+    <div class="muted" style="font-size:11px">Matchup ${idx+1} of ${all.length}</div></div>`);
+  label.style.flex="1";
+  nav.append(prev,label,next); s.appendChild(nav);
+
+  // scoreboard (works for your game or a spectated one)
+  const lp = m.your ? total(myStarters) : m.as;
+  const rp = m.your ? total(oppStarters) : m.bs;
   const sb=el("div","card");
-  const {q,rem}=clk(); const done=app.sim.gameSec>=4*QSEC;
   sb.innerHTML=`<div class="scoreboard">
-    <div class="ts me"><div class="nm">Your Team</div><div class="pts">${total(myStarters).toFixed(1)}</div></div>
+    <div class="ts me"><div class="nm">${m.a}</div><div class="pts">${lp.toFixed(1)}</div></div>
     <div class="clock"><div class="q">${app.sim.gameSec===0&&!app.sim.running?"PREGAME":done?"FINAL":"Q"+q}</div>
       <div class="tt">${done?"0:00":fmt(rem)}</div>
-      <div class="st">${done?"Final":app.sim.running?(app.armed?"⚠ pick target":"LIVE"):"Paused"}</div></div>
-    <div class="ts op"><div class="nm">Burrow Bandits</div><div class="pts">${total(oppStarters).toFixed(1)}</div></div>
+      <div class="st">${done?"Final":app.sim.running?(m.your&&app.armed?"⚠ pick target":"LIVE"):"Paused"}</div></div>
+    <div class="ts op"><div class="nm">${m.b}</div><div class="pts">${rp.toFixed(1)}</div></div>
   </div>`;
   s.appendChild(sb);
+
+  // Spectator view — read-only, no power-ups
+  if(!m.your){
+    const lead = lp>rp ? `${m.a} leads by ${(lp-rp).toFixed(1)}` : rp>lp ? `${m.b} leads by ${(rp-lp).toFixed(1)}` : "All tied up";
+    s.appendChild(el("div","card",`<div style="text-align:center;font-weight:700;font-size:15px">${lead}</div>
+      <div class="muted" style="font-size:12px;text-align:center;margin-top:6px">🔭 Spectating — power-ups can only be used in your own matchup.</div>`));
+    const jump=el("button","btn sec"); jump.style.width="100%"; jump.textContent="← Back to my matchup";
+    jump.onclick=()=>{ app.matchupIdx=0; renderMatchup(); };
+    s.appendChild(jump);
+    return;
+  }
 
   const ctl=el("div","row"); ctl.style.marginBottom="14px";
   const start=el("button","btn", app.sim.running?"⏸ Pause":(app.sim.gameSec>0?"▶ Resume":"▶ Kick Off"));
