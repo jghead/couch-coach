@@ -179,6 +179,20 @@ const LEAGUE = [
   { team:"Bye Week Blues", w:3, l:7, pf:1055 },
   { team:"The Tankers", w:2, l:8, pf:1011 },
 ];
+// CCF power-up standings — tracked BY Couch Coach, separate from Sleeper's official record.
+// (Seeded slightly different from Sleeper to show power-ups changed some outcomes.)
+const CCF_STANDINGS = [
+  { team:"Your Team", w:6, l:4, me:true },
+  { team:"Gridiron Goblins", w:8, l:2 },
+  { team:"Dak to the Future", w:6, l:4 },
+  { team:"Burrow Bandits", w:7, l:3 },
+  { team:"Hurts So Good", w:5, l:5 },
+  { team:"CMC Hammer", w:6, l:4 },
+  { team:"Kelce's Angels", w:4, l:6 },
+  { team:"Waiver Wired", w:4, l:6 },
+  { team:"Bye Week Blues", w:2, l:8 },
+  { team:"The Tankers", w:2, l:8 },
+];
 const OTHER_MATCHUPS = [
   { a:"Gridiron Goblins", as:96.4, b:"Hurts So Good", bs:88.1 },
   { a:"Dak to the Future", as:102.7, b:"The Tankers", bs:71.3 },
@@ -234,7 +248,7 @@ let app = {
 };
 function freshSim(){
   myStarters.forEach(reset); oppStarters.forEach(reset);
-  return { running:false, speed:1, gameSec:0, cd:{}, feed:[], puLog:[], opNext:75,
+  return { running:false, speed:1, gameSec:0, cd:{}, feed:[], puLog:[], opNext:75, ccfRecorded:false,
            others: OTHER_MATCHUPS.map(m=>({...m})) };
 }
 function reset(p){ Object.assign(p,{pts:0,frozen:0,boosted:0,mult:1,hailmary:false,shielded:0,robbed:0,floored:0,pendingScore:undefined}); }
@@ -250,6 +264,17 @@ function feed(t,c){ const {q,rem}=clk(); app.sim.feed.unshift({t:`Q${q} ${fmt(re
 function clkLabel(){ const {q,rem}=clk(); return `Q${q} ${fmt(rem)}`; }
 function logPU(side,key,target,blocked){ app.sim.puLog.push({side,key,target,t:clkLabel(),blocked:!!blocked}); }
 function ord(n){ return n===1?"st":n===2?"nd":n===3?"rd":"th"; }
+// Auto-record the power-up-adjusted result into CCF's own standings (Sleeper untouched).
+function recordCcfResult(){
+  if(app.sim.ccfRecorded) return;
+  app.sim.ccfRecorded=true;
+  const ms=total(myStarters), os=total(oppStarters);
+  const meRow=CCF_STANDINGS.find(t=>t.me);
+  const oppRow=CCF_STANDINGS.find(t=>t.team==="Burrow Bandits");
+  if(ms>os){ meRow.w++; if(oppRow)oppRow.l++; feed("📊 CCF standings auto-updated: you earned a WIN!","ev-pu"); }
+  else if(ms<os){ meRow.l++; if(oppRow)oppRow.w++; feed("📊 CCF standings auto-updated: loss recorded.","ev-pu"); }
+  else { feed("📊 CCF standings: tie — no change.","ev-pu"); }
+}
 // Light opponent AI — fires a power-up at you every so often so the head-to-head feels alive.
 function maybeOpponentAI(adv){
   app.sim.opNext -= adv;
@@ -369,7 +394,8 @@ function tick(){
 
   if(app.sim.gameSec>=4*QSEC){ app.sim.running=false;
     const ms=total(myStarters), os=total(oppStarters);
-    feed(`FINAL — ${ms>os?"🏆 You WIN!":ms<os?"💀 You lose.":"🤝 Tie."}`,"ev-pu"); }
+    feed(`FINAL — ${ms>os?"🏆 You WIN!":ms<os?"💀 You lose.":"🤝 Tie."}`,"ev-pu");
+    recordCcfResult(); }
   if(app.tab==="matchup") renderMatchup();
 }
 
@@ -580,9 +606,18 @@ function renderHome(){
   const stc=el("div","card");
   stc.innerHTML=`<div class="row"><div><b>🏆 League Standing</b>
     <div class="muted" style="font-size:12px">${rankTxt}${rec}${app.leagueData?' · live':''}</div></div></div>`;
-  const stb=el("button","btn sec"); stb.style.width="100%"; stb.style.marginTop="10px"; stb.textContent="View Standings";
+  const stb=el("button","btn sec"); stb.style.width="100%"; stb.style.marginTop="10px"; stb.textContent="View Sleeper Standings";
   stb.onclick=()=>{ app.tab="league"; app.leagueTab="standings"; render(); };
   stc.appendChild(stb); s.appendChild(stc);
+
+  const meCcf=CCF_STANDINGS.find(t=>t.me);
+  const ccfCard=el("div","card"); ccfCard.style.borderColor="var(--gold)";
+  ccfCard.innerHTML=`<div class="row"><div><b>🏆 Your CCF Power-Up Record</b>
+    <div class="muted" style="font-size:12px">Auto-tracked by Couch Coach · Sleeper untouched</div></div>
+    <div style="font-size:22px;font-weight:800;color:var(--gold)">${meCcf.w}-${meCcf.l}</div></div>`;
+  const ccfBtn=el("button","btn sec"); ccfBtn.style.width="100%"; ccfBtn.style.marginTop="10px"; ccfBtn.textContent="View CCF Standings";
+  ccfBtn.onclick=()=>{ app.tab="league"; app.leagueTab="ccf"; render(); };
+  ccfCard.appendChild(ccfBtn); s.appendChild(ccfCard);
 
   const act=el("div","card"); act.appendChild(el("h2","title","🔔 League Activity"));
   ACTIVITY.forEach(a=> act.appendChild(el("div","",
@@ -759,7 +794,7 @@ function renderPlayers(){
 function renderLeague(){
   const s=$("screen"); s.innerHTML="";
   const ts=el("div","tabset");
-  [["scoreboard","Scores"],["standings","Standings"],["schedule","Schedule"],["chat","Trash Talk"]].forEach(([id,lab])=>{
+  [["scoreboard","Scores"],["standings","Sleeper"],["ccf","CCF W-L"],["schedule","Schedule"],["chat","Chat"]].forEach(([id,lab])=>{
     const b=el("button",app.leagueTab===id?"on":"",lab); b.onclick=()=>{app.leagueTab=id;renderLeague();}; ts.appendChild(b);
   });
   s.appendChild(ts);
@@ -786,6 +821,16 @@ function renderLeague(){
       html+=`<tr class="${t.me?'me':''}"><td>${i+1}</td><td>${t.team}</td><td>${t.w}-${t.l}</td><td>${t.pf}</td></tr>`;
     });
     html+=`</table>`; c.innerHTML+=html; s.appendChild(c);
+  } else if(app.leagueTab==="ccf"){
+    s.appendChild(el("div","card",`<h2 class="title">🏆 CCF Power-Up Standings</h2>
+      <div class="muted" style="font-size:12px">Couch Coach tracks this <b style="color:var(--txt)">automatically</b> — each week it reads final scores from Sleeper, applies the power-ups used, and records the head-to-head winner. Your real <b style="color:var(--txt)">Sleeper standings are never changed.</b></div>`));
+    const c=el("div","card");
+    let html=`<table class="std"><tr><th>#</th><th>Team</th><th>CCF W-L</th></tr>`;
+    CCF_STANDINGS.slice().sort((a,b)=>b.w-a.w).forEach((t,i)=>{
+      html+=`<tr class="${t.me?'me':''}"><td>${i+1}</td><td>${t.team}</td><td>${t.w}-${t.l}</td></tr>`;
+    });
+    html+=`</table>`; c.innerHTML=html; s.appendChild(c);
+    s.appendChild(el("div","muted","<div style='font-size:11px;text-align:center'>💡 These differ from the Sleeper tab — power-ups changed who won. Play a matchup to FINAL and watch your record update here.</div>"));
   } else if(app.leagueTab==="schedule"){
     const c=el("div","card"); c.appendChild(el("h2","title","Your Schedule — 2026"));
     SCHEDULE.forEach(g=>{
